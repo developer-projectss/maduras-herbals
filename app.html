@@ -24,8 +24,8 @@
       .topbar {
         flex-shrink: 0;
         background: linear-gradient(135deg, #1a4a00 0%, #2d7a00 100%);
-        padding: 0 28px;
-        height: 80px;
+        padding: 0 32px;
+        height: 90px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -42,18 +42,44 @@
       }
 
       .topbar-logo {
-        height: 62px;
+        height: 74px;
+        width: auto;
         object-fit: contain;
         mix-blend-mode: screen;
-        opacity: 0.95;
-        filter: drop-shadow(0 2px 8px rgba(0,0,0,0.15));
+        opacity: 0.96;
+        filter: drop-shadow(0 2px 10px rgba(0,0,0,0.18));
       }
 
       .topbar-divider {
         width: 1px;
-        height: 32px;
+        height: 40px;
         background: rgba(255,255,255,0.22);
         flex-shrink: 0;
+      }
+
+      .topbar-center {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .topbar-center-name {
+        font-size: 22px;
+        font-weight: 900;
+        color: #fff;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        line-height: 1.1;
+      }
+
+      .topbar-center-sub {
+        font-size: 11px;
+        color: rgba(255,255,255,0.6);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-top: 3px;
       }
 
       .topbar-name {
@@ -239,10 +265,10 @@
 
       /* ── Mobile Responsive ── */
       @media (max-width: 600px) {
-        .topbar { padding: 0 16px; height: 52px; }
-        .topbar-sub { display: none; }
-        .topbar-name { font-size: 13px; letter-spacing: 1px; }
-        .topbar-logo { height: 30px; }
+        .topbar { padding: 0 16px; height: 64px; }
+        .topbar-center-name { font-size: 16px; letter-spacing: 1.5px; }
+        .topbar-center-sub { display: none; }
+        .topbar-logo { height: 48px; }
         .topbar-user { display: none; }
 
         .main { padding: 16px 12px; align-items: flex-start; }
@@ -275,10 +301,10 @@
         <div class="topbar-brand">
           <img src="./js/templates/logo.png" alt="logo" class="topbar-logo" />
           <div class="topbar-divider"></div>
-          <div>
-            <div class="topbar-name">MADURAS HERBALS</div>
-            <div class="topbar-sub">PDF Document Generator</div>
-          </div>
+        </div>
+        <div class="topbar-center">
+          <div class="topbar-center-name">Maduras Herbals</div>
+          <div class="topbar-center-sub">Connecting Nature to You</div>
         </div>
         <div class="topbar-right">
           <span class="topbar-user" id="topbarUser"></span>
