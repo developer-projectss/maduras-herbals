@@ -9,59 +9,61 @@
 
       html, body {
         height: 100%;
-        overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
 
       body {
         display: flex;
-        height: 100vh;
+        min-height: 100vh;
+        overflow: hidden;
       }
 
       /* ── Left Panel ── */
       .left-panel {
         width: 42%;
-        background: linear-gradient(160deg, #1a4a00 0%, #2d7a00 50%, #3d9400 100%);
+        background: linear-gradient(160deg, #1a4a00 0%, #2d7a00 55%, #3d9400 100%);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 48px 40px;
+        padding: 48px 36px;
         position: relative;
         overflow: hidden;
+        flex-shrink: 0;
       }
 
       .left-panel::before {
         content: '';
         position: absolute;
-        width: 320px; height: 320px;
+        width: 340px; height: 340px;
         border-radius: 50%;
-        background: rgba(255,255,255,0.04);
-        top: -80px; left: -80px;
+        background: rgba(255,255,255,0.05);
+        top: -100px; left: -100px;
       }
 
       .left-panel::after {
         content: '';
         position: absolute;
-        width: 240px; height: 240px;
+        width: 260px; height: 260px;
         border-radius: 50%;
-        background: rgba(255,255,255,0.04);
-        bottom: -60px; right: -60px;
+        background: rgba(255,255,255,0.05);
+        bottom: -70px; right: -70px;
       }
 
       .brand-logo {
-        width: 140px;
-        margin-bottom: 24px;
-        filter: brightness(0) invert(1);
+        width: 150px;
+        margin-bottom: 22px;
         position: relative;
         z-index: 1;
+        mix-blend-mode: screen;
+        opacity: 0.92;
       }
 
       .brand-name {
-        font-size: 26px;
+        font-size: 24px;
         font-weight: 800;
         color: #fff;
-        letter-spacing: 2px;
+        letter-spacing: 2.5px;
         text-align: center;
         position: relative;
         z-index: 1;
@@ -69,7 +71,7 @@
 
       .brand-tagline {
         font-size: 13px;
-        color: rgba(255,255,255,0.75);
+        color: rgba(255,255,255,0.72);
         font-style: italic;
         margin-top: 8px;
         text-align: center;
@@ -78,21 +80,21 @@
       }
 
       .brand-divider {
-        width: 48px;
+        width: 44px;
         height: 3px;
-        background: rgba(255,255,255,0.35);
+        background: rgba(255,255,255,0.3);
         border-radius: 2px;
-        margin: 24px auto;
+        margin: 22px auto;
         position: relative;
         z-index: 1;
       }
 
       .brand-desc {
         font-size: 13px;
-        color: rgba(255,255,255,0.6);
+        color: rgba(255,255,255,0.58);
         text-align: center;
-        line-height: 1.6;
-        max-width: 240px;
+        line-height: 1.65;
+        max-width: 230px;
         position: relative;
         z-index: 1;
       }
@@ -100,11 +102,12 @@
       /* ── Right Panel ── */
       .right-panel {
         flex: 1;
-        background: #f7f8f7;
+        background: #f6f8f6;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 40px;
+        padding: 40px 32px;
+        overflow-y: auto;
       }
 
       .login-card {
@@ -120,7 +123,7 @@
         font-size: 22px;
         font-weight: 700;
         color: #1a2a1a;
-        margin-bottom: 6px;
+        margin-bottom: 5px;
       }
 
       .login-subtitle {
@@ -129,17 +132,15 @@
         margin-bottom: 32px;
       }
 
-      .field {
-        margin-bottom: 18px;
-      }
+      .field { margin-bottom: 18px; }
 
       label {
         display: block;
-        font-size: 12px;
-        font-weight: 600;
+        font-size: 11px;
+        font-weight: 700;
         color: #3a4a3a;
         text-transform: uppercase;
-        letter-spacing: 0.6px;
+        letter-spacing: 0.7px;
         margin-bottom: 7px;
       }
 
@@ -180,9 +181,9 @@
         letter-spacing: 0.3px;
       }
 
-      .btn-login:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); }
+      .btn-login:hover:not(:disabled) { opacity: 0.91; transform: translateY(-1px); }
       .btn-login:active:not(:disabled) { transform: translateY(0); }
-      .btn-login:disabled { opacity: 0.55; cursor: not-allowed; }
+      .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
 
       .spinner {
         width: 15px; height: 15px;
@@ -213,20 +214,68 @@
         color: #b0bab0;
         text-align: center;
       }
+
+      /* ── Mobile Responsive ── */
+      @media (max-width: 768px) {
+        body {
+          flex-direction: column;
+          overflow: auto;
+        }
+
+        .left-panel {
+          width: 100%;
+          padding: 32px 24px;
+          flex-direction: row;
+          justify-content: center;
+          gap: 16px;
+          min-height: auto;
+        }
+
+        .left-panel::before,
+        .left-panel::after { display: none; }
+
+        .brand-logo {
+          width: 56px;
+          margin-bottom: 0;
+        }
+
+        .brand-name { font-size: 18px; letter-spacing: 1.5px; }
+        .brand-tagline { font-size: 12px; margin-top: 4px; }
+        .brand-divider, .brand-desc { display: none; }
+
+        .brand-text { text-align: left; }
+
+        .right-panel {
+          flex: none;
+          padding: 28px 20px;
+          align-items: flex-start;
+        }
+
+        .login-card {
+          padding: 32px 24px;
+          box-shadow: none;
+          border-radius: 12px;
+        }
+      }
+
+      @media (max-width: 400px) {
+        .login-card { padding: 24px 18px; }
+        .login-title { font-size: 20px; }
+      }
     </style>
   </head>
   <body>
 
-    <!-- Left branding panel -->
     <div class="left-panel">
       <img src="./js/templates/logo.png" alt="Maduras Herbals" class="brand-logo" />
-      <div class="brand-name">MADURAS HERBALS</div>
-      <div class="brand-tagline">Connecting Nature to You</div>
-      <div class="brand-divider"></div>
-      <div class="brand-desc">PDF Document Generator for Certificates of Analysis &amp; Safety Data Sheets</div>
+      <div class="brand-text">
+        <div class="brand-name">MADURAS HERBALS</div>
+        <div class="brand-tagline">Connecting Nature to You</div>
+        <div class="brand-divider"></div>
+        <div class="brand-desc">PDF Document Generator for Certificates of Analysis &amp; Safety Data Sheets</div>
+      </div>
     </div>
 
-    <!-- Right login panel -->
     <div class="right-panel">
       <div class="login-card">
         <div class="login-title">Welcome back</div>
