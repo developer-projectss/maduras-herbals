@@ -175,8 +175,9 @@ export async function generatePDF(d, _fileName) {
   drawMiniHeader(p3, regular, logoImg, docNo, docDate);
 
   y = PH - 75;
-  y = drawSectionText(p3, bold, regular, y, 'SECTION 15. REGULATORY INFORMATION',
-    d.regulatory_info || 'Not available', true);
+  y = drawSection(p3, bold, regular, y, 'SECTION 15. REGULATORY INFORMATION', [
+    ['Regulatory Information', d.regulatory_info || 'Not available'],
+  ]);
   y -= 10;
   drawSectionText(p3, bold, regular, y, 'SECTION 16. ADDITIONAL INFORMATION',
     d.additional_info ||
