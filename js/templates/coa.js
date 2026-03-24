@@ -217,15 +217,27 @@ function drawTableRow(page, regular, y, cols, values, alt) {
 // SENSORY TABLE
 // ═══════════════════════════════════════════════════════════════════════
 function drawSensoryTable(page, bold, regular, d, startY) {
-  const sd   = d.sensory_data || {};
   const half = CW / 2;
   const col1 = { label: 'SENSORY DATA', x: ML,       w: half };
   const col2 = { label: '',             x: ML + half, w: half };
   let y = drawTableHeader(page, bold, startY, [col1, col2]);
-  [['Appearance', sd.appearance], ['Color', sd.color], ['Odor', sd.odor], ['Solubility', sd.solubility]]
-    .forEach(([p, v], i) => {
-      y = drawTableRow(page, regular, y, [col1, col2], [p, v ?? 'N/A'], i % 2 === 0);
-    });
+
+  let rows;
+  if (Array.isArray(d.sensory_data)) {
+    rows = d.sensory_data.map(r => [r.label, r.value]);
+  } else {
+    const sd = d.sensory_data || {};
+    rows = [
+      ['Appearance', sd.appearance],
+      ['Color',      sd.color],
+      ['Odor',       sd.odor],
+      ['Solubility', sd.solubility],
+    ];
+  }
+
+  rows.forEach(([p, v], i) => {
+    y = drawTableRow(page, regular, y, [col1, col2], [p, v ?? 'N/A'], i % 2 === 0);
+  });
   return y;
 }
 
@@ -239,17 +251,24 @@ function drawAnalyticalTable(page, bold, regular, d, startY) {
     { label: 'SPECIFIED REQUIREMENT', x: ML + w1,      w: w2 },
     { label: 'RESULT (%)',            x: ML + w1 + w2, w: w3 },
   ];
-  const defaults = ['Moisture', 'Total Ash', 'pH (in 5%)', 'Bulk Density g/ml'];
-  const src      = d.analytical_data || [];
-  const covered  = new Set(defaults.map(p => p.toLowerCase()));
-  const extras   = src.filter(r => !covered.has((r.parameter || '').toLowerCase()));
-  const rows     = [
-    ...defaults.map(p => {
-      const m = src.find(r => r.parameter && r.parameter.toLowerCase().includes(p.toLowerCase().split(' ')[0]));
-      return { parameter: p, specification: m?.specification ?? 'N/A', result: m?.result ?? 'N/A' };
-    }),
-    ...extras,
-  ];
+
+  let rows;
+  if (d._edited) {
+    rows = d.analytical_data || [];
+  } else {
+    const defaults = ['Moisture', 'Total Ash', 'pH (in 5%)', 'Bulk Density g/ml'];
+    const src      = d.analytical_data || [];
+    const covered  = new Set(defaults.map(p => p.toLowerCase()));
+    const extras   = src.filter(r => !covered.has((r.parameter || '').toLowerCase()));
+    rows = [
+      ...defaults.map(p => {
+        const m = src.find(r => r.parameter && r.parameter.toLowerCase().includes(p.toLowerCase().split(' ')[0]));
+        return { parameter: p, specification: m?.specification ?? 'N/A', result: m?.result ?? 'N/A' };
+      }),
+      ...extras,
+    ];
+  }
+
   let y = drawTableHeader(page, bold, startY, cols);
   rows.forEach((r, i) => {
     y = drawTableRow(page, regular, y, cols, [r.parameter, r.specification, r.result], i % 2 === 0);
@@ -267,12 +286,19 @@ function drawMicroTable(page, bold, regular, d, startY) {
     { label: 'SPECIFIED REQUIREMENT', x: ML + w1,       w: w2 },
     { label: 'RESULT',               x: ML + w1 + w2,  w: w3 },
   ];
-  const defaults = ['Total Plate Count', 'Yeast & Mould', 'E. Coli', 'Salmonella / 25g'];
-  const src      = d.microbiological_data || [];
-  const rows     = defaults.map(p => {
-    const m = src.find(r => r.parameter && r.parameter.toLowerCase().includes(p.toLowerCase().split(' ')[0]));
-    return { parameter: p, specification: m?.specification ?? 'N/A', result: m?.result ?? 'N/A' };
-  });
+
+  let rows;
+  if (d._edited) {
+    rows = d.microbiological_data || [];
+  } else {
+    const defaults = ['Total Plate Count', 'Yeast & Mould', 'E. Coli', 'Salmonella / 25g'];
+    const src      = d.microbiological_data || [];
+    rows = defaults.map(p => {
+      const m = src.find(r => r.parameter && r.parameter.toLowerCase().includes(p.toLowerCase().split(' ')[0]));
+      return { parameter: p, specification: m?.specification ?? 'N/A', result: m?.result ?? 'N/A' };
+    });
+  }
+
   let y = drawTableHeader(page, bold, startY, cols);
   rows.forEach((r, i) => {
     y = drawTableRow(page, regular, y, cols, [r.parameter, r.specification, r.result], i % 2 === 0);
