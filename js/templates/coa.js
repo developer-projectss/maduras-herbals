@@ -25,6 +25,9 @@ const ML = 60;
 const MR = 60;
 const CW = PW - ML - MR;
 
+// ── Minimum y before footer area ─────────────────────────────────────
+const FOOT_Y_COA = 100;
+
 // ── Auto-incrementing doc number (persisted in localStorage) ──────────
 function getNextDocNumber() {
   const key  = 'maduras_docNum_coa';
@@ -43,12 +46,10 @@ function todayFormatted() {
 // ── Public entry point ────────────────────────────────────────────────
 export async function generatePDF(d, _fileName) {
   const doc         = await PDFDocument.create();
-  const page        = doc.addPage([PW, PH]);
   const bold        = await doc.embedFont(StandardFonts.HelveticaBold);
   const regular     = await doc.embedFont(StandardFonts.Helvetica);
   const boldOblique = await doc.embedFont(StandardFonts.HelveticaBoldOblique);
 
-  // Load logo from sibling PNG file (path resolved relative to this module)
   let logoImg = null;
   try {
     const logoUrl   = new URL('./logo.png', import.meta.url).href;
@@ -61,16 +62,44 @@ export async function generatePDF(d, _fileName) {
   const docNo   = d._docNo   || getNextDocNumber();
   const docDate = d._docDate || todayFormatted();
 
-  drawWatermark(page, logoImg);
-  drawHeader(page, bold, regular, boldOblique, logoImg);
-  const y1 = drawProductInfo(page, bold, regular, d);
-  const y2 = drawSensoryTable(page, bold, regular, d, y1 - 20);
-  const y3 = drawAnalyticalTable(page, bold, regular, d, y2 - 16);
-  const y4 = drawMicroTable(page, bold, regular, d, y3 - 16);
-  await drawFooterArea(page, bold, regular, y4 - 28, doc, d);
-  drawBottomBar(page, bold, regular, docNo, docDate);
+  // Context passed to table functions for overflow handling
+  const ctx = { doc, page: doc.addPage([PW, PH]), bold, regular, boldOblique, logoImg, docNo, docDate };
+
+  drawWatermark(ctx.page, logoImg);
+  drawHeader(ctx.page, bold, regular, boldOblique, logoImg);
+  const y1 = drawProductInfo(ctx.page, bold, regular, d);
+  const y2 = drawSensoryTable(ctx, d, y1 - 20);
+  const y3 = drawAnalyticalTable(ctx, d, y2 - 16);
+  const y4 = drawMicroTable(ctx, d, y3 - 16);
+  await drawFooterArea(ctx.page, bold, regular, y4 - 28, doc, d);
+  drawBottomBar(ctx.page, bold, regular, docNo, docDate);
 
   return await doc.save();
+}
+
+// ── Create a continuation page for COA ───────────────────────────────
+function newCOAPage(ctx) {
+  const page = ctx.doc.addPage([PW, PH]);
+  drawCOAMiniHeader(page, ctx.bold, ctx.regular, ctx.boldOblique, ctx.logoImg, ctx.docNo, ctx.docDate);
+  ctx.page = page;
+  return page;
+}
+
+// ── Mini header for COA continuation pages ───────────────────────────
+function drawCOAMiniHeader(page, bold, regular, boldOblique, logoImg, docNo, docDate) {
+  if (logoImg) {
+    const logoW = 75;
+    const logoH = (logoImg.height / logoImg.width) * logoW;
+    page.drawImage(logoImg, { x: ML, y: PH - 8 - logoH, width: logoW, height: logoH });
+  }
+  const title = 'CERTIFICATE OF ANALYSIS (CONTINUED)';
+  const tw    = bold.widthOfTextAtSize(title, 10);
+  page.drawText(title, { x: PW / 2 - tw / 2, y: PH - 28, size: 10, font: bold, color: COL.black });
+  const dnText = 'Doc No: ' + docNo;
+  const dtText = 'Date: '   + docDate;
+  page.drawText(dnText, { x: PW - MR - regular.widthOfTextAtSize(dnText, 8), y: PH - 18, size: 8, font: regular, color: COL.black });
+  page.drawText(dtText, { x: PW - MR - regular.widthOfTextAtSize(dtText, 8), y: PH - 30, size: 8, font: regular, color: COL.black });
+  page.drawRectangle({ x: ML, y: PH - 50, width: CW, height: 4, color: COL.red });
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -216,11 +245,19 @@ function drawTableRow(page, regular, y, cols, values, alt) {
 // ═══════════════════════════════════════════════════════════════════════
 // SENSORY TABLE
 // ═══════════════════════════════════════════════════════════════════════
-function drawSensoryTable(page, bold, regular, d, startY) {
+function drawSensoryTable(ctx, d, startY) {
+  const { bold, regular } = ctx;
   const half = CW / 2;
   const col1 = { label: 'SENSORY DATA', x: ML,       w: half };
   const col2 = { label: '',             x: ML + half, w: half };
-  let y = drawTableHeader(page, bold, startY, [col1, col2]);
+
+  // Ensure space for header + at least one row
+  let y = startY;
+  if (y - 20 - 18 < FOOT_Y_COA) {
+    newCOAPage(ctx);
+    y = PH - 65;
+  }
+  y = drawTableHeader(ctx.page, bold, y, [col1, col2]);
 
   let rows;
   if (Array.isArray(d.sensory_data)) {
@@ -235,16 +272,25 @@ function drawSensoryTable(page, bold, regular, d, startY) {
     ];
   }
 
-  rows.forEach(([p, v], i) => {
-    y = drawTableRow(page, regular, y, [col1, col2], [p, v ?? 'N/A'], i % 2 === 0);
-  });
+  let altIdx = 0;
+  for (const [p, v] of rows) {
+    if (y - 18 < FOOT_Y_COA) {
+      newCOAPage(ctx);
+      y = PH - 65;
+      y = drawTableHeader(ctx.page, bold, y, [col1, col2]);
+      altIdx = 0;
+    }
+    y = drawTableRow(ctx.page, regular, y, [col1, col2], [p, v ?? 'N/A'], altIdx % 2 === 0);
+    altIdx++;
+  }
   return y;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
 // ANALYTICAL TABLE
 // ═══════════════════════════════════════════════════════════════════════
-function drawAnalyticalTable(page, bold, regular, d, startY) {
+function drawAnalyticalTable(ctx, d, startY) {
+  const { bold, regular } = ctx;
   const w1 = CW * 0.38, w2 = CW * 0.35, w3 = CW * 0.27;
   const cols = [
     { label: 'ANALYTICAL DATA',       x: ML,          w: w1 },
@@ -269,17 +315,32 @@ function drawAnalyticalTable(page, bold, regular, d, startY) {
     ];
   }
 
-  let y = drawTableHeader(page, bold, startY, cols);
-  rows.forEach((r, i) => {
-    y = drawTableRow(page, regular, y, cols, [r.parameter, r.specification, r.result], i % 2 === 0);
-  });
+  let y = startY;
+  if (y - 20 - 18 < FOOT_Y_COA) {
+    newCOAPage(ctx);
+    y = PH - 65;
+  }
+  y = drawTableHeader(ctx.page, bold, y, cols);
+
+  let altIdx = 0;
+  for (const r of rows) {
+    if (y - 18 < FOOT_Y_COA) {
+      newCOAPage(ctx);
+      y = PH - 65;
+      y = drawTableHeader(ctx.page, bold, y, cols);
+      altIdx = 0;
+    }
+    y = drawTableRow(ctx.page, regular, y, cols, [r.parameter, r.specification, r.result], altIdx % 2 === 0);
+    altIdx++;
+  }
   return y;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
 // MICROBIOLOGICAL TABLE
 // ═══════════════════════════════════════════════════════════════════════
-function drawMicroTable(page, bold, regular, d, startY) {
+function drawMicroTable(ctx, d, startY) {
+  const { bold, regular } = ctx;
   const w1 = CW * 0.38, w2 = CW * 0.35, w3 = CW * 0.27;
   const cols = [
     { label: 'MICROBIOLOGICAL DATA',  x: ML,           w: w1 },
@@ -299,10 +360,24 @@ function drawMicroTable(page, bold, regular, d, startY) {
     });
   }
 
-  let y = drawTableHeader(page, bold, startY, cols);
-  rows.forEach((r, i) => {
-    y = drawTableRow(page, regular, y, cols, [r.parameter, r.specification, r.result], i % 2 === 0);
-  });
+  let y = startY;
+  if (y - 20 - 18 < FOOT_Y_COA) {
+    newCOAPage(ctx);
+    y = PH - 65;
+  }
+  y = drawTableHeader(ctx.page, bold, y, cols);
+
+  let altIdx = 0;
+  for (const r of rows) {
+    if (y - 18 < FOOT_Y_COA) {
+      newCOAPage(ctx);
+      y = PH - 65;
+      y = drawTableHeader(ctx.page, bold, y, cols);
+      altIdx = 0;
+    }
+    y = drawTableRow(ctx.page, regular, y, cols, [r.parameter, r.specification, r.result], altIdx % 2 === 0);
+    altIdx++;
+  }
   return y;
 }
 

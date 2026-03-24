@@ -34,6 +34,9 @@ const FS   = 8.5; // font size
 const LH   = 11;  // line height for multi-line text
 const RPAD = 4;   // vertical cell padding (each side)
 
+// ── Safe bottom margin (above footer bar) ────────────────────────────
+const FOOT_Y = 65;
+
 // ── Auto-incrementing doc number ──────────────────────────────────────
 function getNextDocNumber() {
   const key  = 'maduras_docNum_msds';
@@ -68,92 +71,172 @@ export async function generatePDF(d, _fileName) {
   const docNo   = d._docNo   || getNextDocNumber();
   const docDate = d._docDate || todayFormatted();
 
-  // ── Page 1 — Sections 1–7 ─────────────────────────────────────────
-  const p1 = doc.addPage([PW, PH]);
-  drawWatermark(p1, logoImg, false);
-  drawPage1Header(p1, bold, regular, boldObl, logoImg);
+  // ── Dynamic Page Manager ──────────────────────────────────────────
+  const pm = { page: null, y: 0, num: 0 };
 
-  let y = PH - 92;
-  y = drawSection(p1, bold, regular, y, 'SECTION 1. PRODUCT AND COMPANY IDENTIFICATION', [
+  function calcRowH(label, value) {
+    const n = Math.max(
+      wrapText(bold,    String(label  ?? ''),    FS, LW - 10).length,
+      wrapText(regular, String(value  ?? 'N/A'), FS, VW - 12).length
+    );
+    return n * LH + 2 * RPAD;
+  }
+
+  function addPage() {
+    if (pm.page) {
+      drawPageFooter(pm.page, regular, pm.num, pm.num > 1);
+    }
+    pm.num++;
+    pm.page = doc.addPage([PW, PH]);
+    drawWatermark(pm.page, logoImg);
+    if (pm.num === 1) {
+      drawPage1Header(pm.page, bold, regular, boldObl, logoImg);
+      pm.y = PH - 92;
+    } else {
+      drawMiniHeader(pm.page, regular, logoImg, docNo, docDate);
+      pm.y = PH - 75;
+    }
+  }
+
+  function ensureSpace(h) {
+    if (!pm.page || pm.y - h < FOOT_Y) addPage();
+  }
+
+  function gap(n) { pm.y -= n; }
+
+  // ── Page-break-aware section drawing ─────────────────────────────
+  function drawSec(title, rows) {
+    const firstH = rows.length ? calcRowH(rows[0][0], rows[0][1]) : 0;
+    ensureSpace(20 + firstH);
+    pm.y = drawSectionHeader(pm.page, bold, pm.y, title);
+    rows.forEach(([label, value]) => {
+      ensureSpace(calcRowH(label, value));
+      pm.y = drawRow(pm.page, bold, regular, pm.y, label, value);
+    });
+  }
+
+  function drawSec3() {
+    const firstH = calcRowH('Eye Contact', d.eye_contact);
+    ensureSpace(20 + FS + 8 + firstH);
+    pm.y = drawSectionHeader(pm.page, bold, pm.y, 'SECTION 3. HAZARDS IDENTIFICATION');
+    pm.y -= 4;
+    pm.page.drawText('Routes of Entry:', {
+      x: ML + 5, y: pm.y - FS,
+      size: FS, font: bold, color: COL.black,
+    });
+    pm.y -= FS + 8;
+    [
+      ['Eye Contact',  d.eye_contact],
+      ['Skin Contact', d.skin_contact],
+      ['Ingestion',    d.ingestion_hazard],
+      ['Inhalation',   d.inhalation_hazard],
+    ].forEach(([label, value]) => {
+      ensureSpace(calcRowH(label, value));
+      pm.y = drawRow(pm.page, bold, regular, pm.y, label, value);
+    });
+  }
+
+  function drawSecText(title, text) {
+    const lines = wrapText(regular, text, FS, CW - 4);
+    ensureSpace(20 + LH + 8);
+    pm.y = drawSectionHeader(pm.page, bold, pm.y, title);
+    pm.y -= 8;
+    lines.forEach(line => {
+      ensureSpace(LH);
+      pm.page.drawText(line, { x: ML, y: pm.y, size: FS, font: regular, color: COL.black });
+      pm.y -= LH;
+    });
+  }
+
+  // ── Draw all sections ─────────────────────────────────────────────
+  addPage(); // start page 1
+
+  drawSec('SECTION 1. PRODUCT AND COMPANY IDENTIFICATION', [
     ['Product Name',    d.product_name],
     ['Product Use',     'For personal care formulation'],
     ['Company Name',    'Maduras Herbals Pvt Ltd'],
     ['Company Address', 'Reddiyur, Salem-636004, Tamil Nadu, India.'],
     ['Phone Number',    '+91 8644823456'],
   ]);
-  y -= 8;
-  y = drawSection(p1, bold, regular, y, 'SECTION 2. COMPOSITION/INGREDIENT INFORMATION', [
+  gap(8);
+
+  drawSec('SECTION 2. COMPOSITION/INGREDIENT INFORMATION', [
     ['INCI Name',            d.inci_name],
     ['CAS No',               d.cas_no],
     ['Hazardous Components', d.hazardous_components],
   ]);
-  y -= 8;
-  y = drawSection3(p1, bold, regular, y, d);
-  y -= 8;
-  y = drawSection(p1, bold, regular, y, 'SECTION 4. FIRST-AID MEASURES', [
+  gap(8);
+
+  drawSec3();
+  gap(8);
+
+  drawSec('SECTION 4. FIRST-AID MEASURES', [
     ['Eyes',       d.first_aid_eyes],
     ['Skin',       d.first_aid_skin],
     ['Ingestion',  d.first_aid_ingestion],
     ['Inhalation', d.first_aid_inhalation],
   ]);
-  y -= 8;
-  y = drawSection(p1, bold, regular, y, 'SECTION 5. FIRE FIGHTING MEASURES', [
+  gap(8);
+
+  drawSec('SECTION 5. FIRE FIGHTING MEASURES', [
     ['Extinguishing media\nrecommended',  d.extinguishing_media],
     ['Special Firefighting\nProcedures',  d.firefighting_procedures],
     ['Unusual Fire &\nExplosion Hazards', d.fire_explosion_hazards],
   ]);
-  y -= 8;
-  y = drawSection(p1, bold, regular, y, 'SECTION 6. ACCIDENTAL RELEASE MEASURES (STEPS FOR SPILLS)', [
+  gap(8);
+
+  drawSec('SECTION 6. ACCIDENTAL RELEASE MEASURES (STEPS FOR SPILLS)', [
     ['Methods for Cleaning Up', d.cleaning_methods],
   ]);
-  y -= 8;
-  drawSection(p1, bold, regular, y, 'SECTION 7. HANDLING AND STORAGE', [
+  gap(8);
+
+  drawSec('SECTION 7. HANDLING AND STORAGE', [
     ['Safe Handling',                                    d.safe_handling],
     ['Requirements for\nStorage Areas and\nContainers', d.storage_requirements],
   ]);
-  drawPageFooter(p1, regular, 1, false);
+  gap(8);
 
-  // ── Page 2 — Sections 8–14 ───────────────────────────────────────
-  const p2 = doc.addPage([PW, PH]);
-  drawWatermark(p2, logoImg, false);
-  drawMiniHeader(p2, regular, logoImg, docNo, docDate);
-
-  y = PH - 75;
-  y = drawSection(p2, bold, regular, y, 'SECTION 8. EXPOSURE CONTROL/PERSONAL PROTECTION', [
+  drawSec('SECTION 8. EXPOSURE CONTROL/PERSONAL PROTECTION', [
     ['Eye',                    d.exposure_eye],
     ['Skin/Body',              d.exposure_skin],
     ['Respiratory',            d.exposure_respiratory],
     ['Other',                  d.exposure_other],
     ['Work/Hygiene\nPractice', d.work_hygiene_practice],
   ]);
-  y -= 8;
-  y = drawSection(p2, bold, regular, y, 'SECTION 9. PHYSICAL AND CHEMICAL PROPERTIES', [
+  gap(8);
+
+  drawSec('SECTION 9. PHYSICAL AND CHEMICAL PROPERTIES', [
     ['Physical State', d.physical_state],
     ['Color',          d.color],
     ['Odor',           d.odor],
     ['Flash Point',    d.flash_point],
   ]);
-  y -= 8;
-  y = drawSection(p2, bold, regular, y, 'SECTION 10. STABILITY AND REACTIVITY', [
+  gap(8);
+
+  drawSec('SECTION 10. STABILITY AND REACTIVITY', [
     ['Stability',                              d.stability],
     ['Incompatibility\n(Materials to Avoid)',  d.incompatibility],
-    ['Conditions to Avoid',                   d.conditions_to_avoid],
+    ['Conditions to Avoid',                    d.conditions_to_avoid],
     ['Hazardous Decomposition\nor Byproducts', d.hazardous_decomposition],
   ]);
-  y -= 8;
-  y = drawSection(p2, bold, regular, y, 'SECTION 11. TOXICOLOGICAL INFORMATION', [
+  gap(8);
+
+  drawSec('SECTION 11. TOXICOLOGICAL INFORMATION', [
     ['Toxicity', d.toxicity],
   ]);
-  y -= 8;
-  y = drawSection(p2, bold, regular, y, 'SECTION 12. ECOLOGICAL INFORMATION', [
+  gap(8);
+
+  drawSec('SECTION 12. ECOLOGICAL INFORMATION', [
     ['Degradability', d.degradability],
   ]);
-  y -= 8;
-  y = drawSection(p2, bold, regular, y, 'SECTION 13. DISPOSAL CONSIDERATIONS', [
+  gap(8);
+
+  drawSec('SECTION 13. DISPOSAL CONSIDERATIONS', [
     ['Waste Disposal Methods', d.waste_disposal],
   ]);
-  y -= 8;
-  y = drawSection(p2, bold, regular, y, 'SECTION 14. TRANSPORT INFORMATION', [
+  gap(8);
+
+  drawSec('SECTION 14. TRANSPORT INFORMATION', [
     ['DOT Classification',   d.dot_classification],
     ['IATA',                 d.iata],
     ['IMDG',                 d.imdg],
@@ -163,23 +246,21 @@ export async function generatePDF(d, _fileName) {
     ['ID Number',            d.id_number],
     ['Label',                d.label],
   ]);
-  y -= 7;
-  p2.drawText('This product is not regulated as a hazardous material for transport.', {
-    x: ML, y, size: FS, font: regular, color: COL.black,
+  gap(7);
+
+  ensureSpace(LH + 4);
+  pm.page.drawText('This product is not regulated as a hazardous material for transport.', {
+    x: ML, y: pm.y, size: FS, font: regular, color: COL.black,
   });
-  drawPageFooter(p2, regular, 2, true);
+  pm.y -= LH;
+  gap(8);
 
-  // ── Page 3 — Sections 15–16 ──────────────────────────────────────
-  const p3 = doc.addPage([PW, PH]);
-  drawWatermark(p3, logoImg, true);
-  drawMiniHeader(p3, regular, logoImg, docNo, docDate);
-
-  y = PH - 75;
-  y = drawSection(p3, bold, regular, y, 'SECTION 15. REGULATORY INFORMATION', [
+  drawSec('SECTION 15. REGULATORY INFORMATION', [
     ['Regulatory Information', d.regulatory_info || 'Not available'],
   ]);
-  y -= 10;
-  y = drawSectionText(p3, bold, regular, y, 'SECTION 16. ADDITIONAL INFORMATION',
+  gap(10);
+
+  drawSecText('SECTION 16. ADDITIONAL INFORMATION',
     d.additional_info ||
     'This information is provided for documentation purposes only. This product is not ' +
     'considered hazardous. The complete range of conditions or methods of use are beyond ' +
@@ -193,10 +274,15 @@ export async function generatePDF(d, _fileName) {
     'situations which the user may experience during processing. Each aspect of your ' +
     'operation should be examined to determine if, or were, additional precautions may be ' +
     'necessary. All health and safety information contained in this bulletin should be ' +
-    'provided to your employees or customer',
-    false);
-  await drawSignatureArea(p3, regular, y - 16, doc, d);
-  drawPageFooter(p3, regular, 3, true);
+    'provided to your employees or customer');
+
+  // ── Signature area ────────────────────────────────────────────────
+  ensureSpace(50);
+  pm.y -= 16;
+  await drawSignatureArea(pm.page, regular, pm.y, doc, d);
+
+  // ── Close last page ───────────────────────────────────────────────
+  drawPageFooter(pm.page, regular, pm.num, pm.num > 1);
 
   return await doc.save();
 }
@@ -204,16 +290,16 @@ export async function generatePDF(d, _fileName) {
 // ═══════════════════════════════════════════════════════════════════════
 // WATERMARK
 // ═══════════════════════════════════════════════════════════════════════
-function drawWatermark(page, logoImg, large) {
+function drawWatermark(page, logoImg) {
   if (!logoImg) return;
-  const wW = large ? 420 : 300;
+  const wW = 300;
   const wH = (logoImg.height / logoImg.width) * wW;
   page.drawImage(logoImg, {
     x:       PW / 2 - wW / 2,
-    y:       PH / 2 - wH / 2 - (large ? 50 : 0),
+    y:       PH / 2 - wH / 2,
     width:   wW,
     height:  wH,
-    opacity: large ? 0.10 : 0.05,
+    opacity: 0.05,
   });
 }
 
@@ -259,7 +345,7 @@ function drawPage1Header(page, bold, regular, boldObl, logoImg) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// PAGES 2 & 3 MINI HEADER — small logo left, Doc No / Date right
+// CONTINUATION HEADER — small logo left, Doc No / Date right
 // ═══════════════════════════════════════════════════════════════════════
 function drawMiniHeader(page, regular, logoImg, docNo, docDate) {
   if (logoImg) {
@@ -295,7 +381,7 @@ function drawPageFooter(page, regular, pageNum, withPrefix) {
   page.drawText('www.madurasherbals.com', {
     x: ML, y: 28, size: 7.5, font: regular, color: COL.black,
   });
-  const label = withPrefix ? 'Page |' + pageNum : String(pageNum);
+  const label = withPrefix ? 'Page | ' + pageNum : String(pageNum);
   page.drawText(label, {
     x: PW - MR - regular.widthOfTextAtSize(label, 7.5),
     y: 28, size: 7.5, font: regular, color: COL.black,
@@ -303,7 +389,7 @@ function drawPageFooter(page, regular, pageNum, withPrefix) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// TEXT WRAPPING — splits text at \n and by word-wrap
+// TEXT WRAPPING
 // ═══════════════════════════════════════════════════════════════════════
 function wrapText(font, text, size, maxWidth) {
   const str    = String(text ?? 'N/A');
@@ -326,8 +412,7 @@ function wrapText(font, text, size, maxWidth) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// TABLE ROW — dynamic height, label centered, value centered (1-line)
-//             or left-aligned (multi-line)
+// TABLE ROW — dynamic height
 // ═══════════════════════════════════════════════════════════════════════
 function drawRow(page, bold, regular, y, labelStr, valueStr) {
   const labLines = wrapText(bold,    labelStr,          FS, LW - 10);
@@ -335,21 +420,18 @@ function drawRow(page, bold, regular, y, labelStr, valueStr) {
   const n  = Math.max(labLines.length, valLines.length);
   const rh = n * LH + 2 * RPAD;
 
-  // Row background + border
   page.drawRectangle({
     x: ML, y: y - rh, width: CW, height: rh,
     color: COL.rowWhite,
     borderColor: COL.border, borderWidth: 0.3,
   });
 
-  // Column divider
   page.drawLine({
     start: { x: ML + LW, y },
     end:   { x: ML + LW, y: y - rh },
     thickness: 0.5, color: COL.border,
   });
 
-  // Label — bold, horizontally + vertically centred in label cell
   const labBlockH = labLines.length * LH;
   const labY0 = y - (rh - labBlockH) / 2 - FS * 0.85;
   labLines.forEach((line, i) => {
@@ -361,7 +443,6 @@ function drawRow(page, bold, regular, y, labelStr, valueStr) {
     });
   });
 
-  // Value — regular, vertically centred; horizontally centred for single line
   const valBlockH = valLines.length * LH;
   const valY0 = y - (rh - valBlockH) / 2 - FS * 0.85;
   valLines.forEach((line, i) => {
@@ -390,33 +471,8 @@ function drawSectionHeader(page, bold, y, title) {
   return y - rh;
 }
 
-// ── Generic section: header bar + table rows ──────────────────────────
-function drawSection(page, bold, regular, y, title, rows) {
-  y = drawSectionHeader(page, bold, y, title);
-  rows.forEach(([label, value]) => {
-    y = drawRow(page, bold, regular, y, label, value);
-  });
-  return y;
-}
-
-// ── Section 3: standalone "Routes of Entry:" label then table rows ────
-function drawSection3(page, bold, regular, y, d) {
-  y = drawSectionHeader(page, bold, y, 'SECTION 3. HAZARDS IDENTIFICATION');
-  y -= 4;
-  page.drawText('Routes of Entry:', {
-    x: ML + 5, y: y - FS,
-    size: FS, font: bold, color: COL.black,
-  });
-  y -= FS + 8;
-  y = drawRow(page, bold, regular, y, 'Eye Contact',  d.eye_contact);
-  y = drawRow(page, bold, regular, y, 'Skin Contact', d.skin_contact);
-  y = drawRow(page, bold, regular, y, 'Ingestion',    d.ingestion_hazard);
-  y = drawRow(page, bold, regular, y, 'Inhalation',   d.inhalation_hazard);
-  return y;
-}
-
 // ═══════════════════════════════════════════════════════════════════════
-// SIGNATURE AREA — bottom of page 3
+// SIGNATURE AREA
 // ═══════════════════════════════════════════════════════════════════════
 async function drawSignatureArea(page, regular, y, doc, d) {
   if (d._sigOption === 1) {
@@ -432,28 +488,4 @@ async function drawSignatureArea(page, regular, y, doc, d) {
       page.drawImage(sigImg, { x: ML + 20, y: y - sigH + 10, width: sigW, height: sigH });
     } catch (e) { console.warn('[MSDS] Signature embed failed:', e); }
   }
-}
-
-// ── Sections 15 & 16: header bar + plain paragraph text ──────────────
-function drawSectionText(page, bold, regular, y, title, text, centered) {
-  y = drawSectionHeader(page, bold, y, title);
-  y -= 8;
-  const lines = wrapText(regular, text, FS, CW - 4);
-  if (centered && lines.length === 1) {
-    const tw = regular.widthOfTextAtSize(lines[0], FS);
-    page.drawText(lines[0], {
-      x: ML + (CW - tw) / 2, y,
-      size: FS, font: regular, color: COL.black,
-    });
-    y -= LH;
-  } else {
-    lines.forEach(line => {
-      page.drawText(line, {
-        x: ML, y,
-        size: FS, font: regular, color: COL.black,
-      });
-      y -= LH;
-    });
-  }
-  return y;
 }
