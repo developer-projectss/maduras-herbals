@@ -65,8 +65,8 @@ export async function generatePDF(d, _fileName) {
     console.warn('[MSDS] Logo load failed:', e.message);
   }
 
-  const docNo   = getNextDocNumber();
-  const docDate = todayFormatted();
+  const docNo   = d._docNo   || getNextDocNumber();
+  const docDate = d._docDate || todayFormatted();
 
   // ── Page 1 — Sections 1–7 ─────────────────────────────────────────
   const p1 = doc.addPage([PW, PH]);

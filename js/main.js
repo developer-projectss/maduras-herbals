@@ -268,7 +268,7 @@ function renderCOAEditor(data) {
     { label: 'Solubility', value: sd.solubility || '' },
   ];
 
-  editContent.innerHTML = `
+  editContent.innerHTML = docControlHTML('COA-', 'maduras_docNum_coa') + `
     <div class="edit-group">
       <div class="edit-group-title">Product Information</div>
       <div class="edit-fields">
@@ -357,6 +357,8 @@ function readCOAData() {
 
   return {
     _edited:              true,
+    _docNo:               (document.getElementById('ef__docNo')?.value  || '').trim(),
+    _docDate:             formatDateForPDF(document.getElementById('ef__docDate')?.value),
     product_name:         gv('product_name'),
     botanical_name:       gv('botanical_name'),
     country_of_origin:    gv('country_of_origin'),
@@ -390,7 +392,7 @@ function renderMSDSEditor(data) {
     </div>`;
   }
 
-  editContent.innerHTML =
+  editContent.innerHTML = docControlHTML('MSDS-', 'maduras_docNum_msds') +
     grp('Section 1 &amp; 2: Product &amp; Composition', [
       ['product_name',         'Product Name',         false, false],
       ['inci_name',            'INCI Name',            false, false],
@@ -469,6 +471,8 @@ function readMSDSData() {
 
   return {
     _edited:                 true,
+    _docNo:                  (document.getElementById('ef__docNo')?.value  || '').trim(),
+    _docDate:                formatDateForPDF(document.getElementById('ef__docDate')?.value),
     product_name:            gv('product_name'),
     inci_name:               gv('inci_name'),
     cas_no:                  gv('cas_no'),
@@ -516,6 +520,45 @@ function readMSDSData() {
   };
 }
 
+
+// ── Doc Control Helpers ───────────────────────────────────────────────
+function peekDocNumber(prefix, storageKey) {
+  const next = (parseInt(localStorage.getItem(storageKey) || '0', 10)) + 1;
+  return prefix + String(next).padStart(5, '0');
+}
+
+function todayInputValue() {
+  const d  = new Date();
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function formatDateForPDF(dateInputVal) {
+  if (!dateInputVal) return '';
+  const [y, m, day] = dateInputVal.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function docControlHTML(prefix, storageKey) {
+  const suggestedNo = peekDocNumber(prefix, storageKey);
+  const todayVal    = todayInputValue();
+  return `
+    <div class="edit-group">
+      <div class="edit-group-title">Document Control</div>
+      <div class="edit-fields">
+        <div class="edit-field">
+          <label>Document Number</label>
+          <input type="text" id="ef__docNo" value="${esc(suggestedNo)}" placeholder="e.g. ${esc(suggestedNo)}" />
+        </div>
+        <div class="edit-field">
+          <label>Document Date</label>
+          <input type="date" id="ef__docDate" value="${todayVal}" />
+        </div>
+      </div>
+    </div>
+  `;
+}
 
 // ── Table Row Helpers ─────────────────────────────────────────────────
 function makeRow2(v1, v2) {

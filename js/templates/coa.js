@@ -58,8 +58,8 @@ export async function generatePDF(d, _fileName) {
     console.warn('[COA] Logo load failed:', e.message);
   }
 
-  const docNo   = getNextDocNumber();
-  const docDate = todayFormatted();
+  const docNo   = d._docNo   || getNextDocNumber();
+  const docDate = d._docDate || todayFormatted();
 
   drawWatermark(page, logoImg);
   drawHeader(page, bold, regular, boldOblique, logoImg);
