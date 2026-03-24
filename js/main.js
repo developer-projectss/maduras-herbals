@@ -33,6 +33,7 @@ let uploadedPdfBytes    = null;
 let uploadedFileName    = '';
 let generatedBlobUrl    = null;
 let extractedTemplateId = null;
+let sigSelectedBytes    = null;
 
 
 // ── DOM References ────────────────────────────────────────────────────
@@ -268,7 +269,8 @@ function renderCOAEditor(data) {
     { label: 'Solubility', value: sd.solubility || '' },
   ];
 
-  editContent.innerHTML = docControlHTML('COA-', 'maduras_docNum_coa') + `
+  sigSelectedBytes = null;
+  editContent.innerHTML = sigControlHTML() + docControlHTML('COA-', 'maduras_docNum_coa') + `
     <div class="edit-group">
       <div class="edit-group-title">Product Information</div>
       <div class="edit-fields">
@@ -321,6 +323,7 @@ function renderCOAEditor(data) {
       <button class="add-row-btn" id="addMicroRow">+ Add Row</button>
     </div>
   `;
+  setupSigHandlers();
 }
 
 function readCOAData() {
@@ -355,10 +358,15 @@ function readCOAData() {
     });
   });
 
+  const sigOption = parseInt(document.querySelector('input[name="sigOption"]:checked')?.value || '1');
+  if (sigOption === 2 && !sigSelectedBytes) throw new Error('Please select or upload a signature image for Option 2.');
+
   return {
     _edited:              true,
     _docNo:               (document.getElementById('ef__docNo')?.value  || '').trim(),
     _docDate:             formatDateForPDF(document.getElementById('ef__docDate')?.value),
+    _sigOption:           sigOption,
+    _sigBytes:            sigOption === 2 ? sigSelectedBytes : null,
     product_name:         gv('product_name'),
     botanical_name:       gv('botanical_name'),
     country_of_origin:    gv('country_of_origin'),
@@ -392,7 +400,8 @@ function renderMSDSEditor(data) {
     </div>`;
   }
 
-  editContent.innerHTML = docControlHTML('MSDS-', 'maduras_docNum_msds') +
+  sigSelectedBytes = null;
+  editContent.innerHTML = sigControlHTML() + docControlHTML('MSDS-', 'maduras_docNum_msds') +
     grp('Section 1 &amp; 2: Product &amp; Composition', [
       ['product_name',         'Product Name',         false, false],
       ['inci_name',            'INCI Name',            false, false],
@@ -461,6 +470,7 @@ function renderMSDSEditor(data) {
       ['regulatory_info', 'Regulatory Info', true, true],
       ['additional_info', 'Additional Info', true, true],
     ]);
+  setupSigHandlers();
 }
 
 function readMSDSData() {
@@ -469,10 +479,15 @@ function readMSDSData() {
     return el ? (el.value || '').trim() : '';
   };
 
+  const sigOption = parseInt(document.querySelector('input[name="sigOption"]:checked')?.value || '1');
+  if (sigOption === 2 && !sigSelectedBytes) throw new Error('Please select or upload a signature image for Option 2.');
+
   return {
     _edited:                 true,
     _docNo:                  (document.getElementById('ef__docNo')?.value  || '').trim(),
     _docDate:                formatDateForPDF(document.getElementById('ef__docDate')?.value),
+    _sigOption:              sigOption,
+    _sigBytes:               sigOption === 2 ? sigSelectedBytes : null,
     product_name:            gv('product_name'),
     inci_name:               gv('inci_name'),
     cas_no:                  gv('cas_no'),
@@ -520,6 +535,95 @@ function readMSDSData() {
   };
 }
 
+
+// ── Signature Helpers ─────────────────────────────────────────────────
+function sigControlHTML() {
+  return `
+    <div class="edit-group">
+      <div class="edit-group-title">Signature Option</div>
+      <div class="sig-options">
+        <label class="sig-radio-label">
+          <input type="radio" name="sigOption" id="sigOpt1" value="1" checked />
+          <div class="sig-radio-text">
+            <span>Option 1 — Computer Generated Statement</span>
+            <small>"This is a computer-generated document and does not require a signature."</small>
+          </div>
+        </label>
+        <label class="sig-radio-label">
+          <input type="radio" name="sigOption" id="sigOpt2" value="2" />
+          <div class="sig-radio-text">
+            <span>Option 2 — Authorized Signature</span>
+          </div>
+        </label>
+        <div class="sig-choice-area" id="sigChoiceArea" style="display:none">
+          <div class="sig-presets">
+            <button type="button" class="sig-preset-btn" id="sigBtn1" data-src="./js/templates/sig1.png">
+              <img src="./js/templates/sig1.png" alt="Signature 1" onerror="this.parentElement.classList.add('sig-missing')" />
+              <span>Signature 1</span>
+            </button>
+            <button type="button" class="sig-preset-btn" id="sigBtn2" data-src="./js/templates/sig2.png">
+              <img src="./js/templates/sig2.png" alt="Signature 2" onerror="this.parentElement.classList.add('sig-missing')" />
+              <span>Signature 2</span>
+            </button>
+            <label class="sig-upload-label">
+              <input type="file" id="sigUpload" accept="image/png,image/jpeg" style="display:none" />
+              ⬆ Upload Signature
+            </label>
+          </div>
+          <div class="sig-preview" id="sigPreview" style="display:none">
+            <img id="sigPreviewImg" alt="Selected signature" />
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function setupSigHandlers() {
+  const opt1       = document.getElementById('sigOpt1');
+  const opt2       = document.getElementById('sigOpt2');
+  const choiceArea = document.getElementById('sigChoiceArea');
+  const sigUpload  = document.getElementById('sigUpload');
+  const sigBtn1    = document.getElementById('sigBtn1');
+  const sigBtn2    = document.getElementById('sigBtn2');
+  if (!opt1) return;
+
+  opt2.addEventListener('change', () => { choiceArea.style.display = 'block'; });
+  opt1.addEventListener('change', () => {
+    choiceArea.style.display = 'none';
+    sigSelectedBytes = null;
+  });
+
+  sigBtn1.addEventListener('click', () => selectPresetSig('./js/templates/sig1.png', sigBtn1));
+  sigBtn2.addEventListener('click', () => selectPresetSig('./js/templates/sig2.png', sigBtn2));
+
+  sigUpload.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      sigSelectedBytes = new Uint8Array(ev.target.result);
+      document.getElementById('sigPreviewImg').src = URL.createObjectURL(file);
+      document.getElementById('sigPreview').style.display = 'block';
+      sigBtn1.classList.remove('selected');
+      sigBtn2.classList.remove('selected');
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function selectPresetSig(src, btn) {
+  try {
+    const bytes      = await fetch(src).then(r => r.arrayBuffer());
+    sigSelectedBytes = new Uint8Array(bytes);
+    document.querySelectorAll('.sig-preset-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    document.getElementById('sigPreviewImg').src = src;
+    document.getElementById('sigPreview').style.display = 'block';
+  } catch {
+    showStatus('Could not load predefined signature. Please upload one instead.', 'error');
+  }
+}
 
 // ── Doc Control Helpers ───────────────────────────────────────────────
 function peekDocNumber(prefix, storageKey) {

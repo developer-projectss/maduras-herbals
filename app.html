@@ -387,6 +387,51 @@
         .edit-fields { grid-template-columns: 1fr; }
         .card--wide { max-width: 100%; }
       }
+
+      /* ── Signature Options ── */
+      .sig-options {
+        padding: 14px; background: #fafcfa;
+        border: 1px solid #dde5dd; border-top: none;
+        border-radius: 0 0 6px 6px;
+        display: flex; flex-direction: column; gap: 12px;
+      }
+      .sig-radio-label {
+        display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+      }
+      .sig-radio-label input[type="radio"] { margin-top: 3px; accent-color: #2d7a00; flex-shrink: 0; }
+      .sig-radio-text { display: flex; flex-direction: column; gap: 3px; }
+      .sig-radio-text span { font-size: 13px; font-weight: 600; color: #1a2a1a; }
+      .sig-radio-text small { font-size: 12px; color: #7a8a7a; font-style: italic; }
+      .sig-choice-area {
+        margin-left: 22px; padding: 12px;
+        background: #f2f9ec; border: 1px solid #b8d89a;
+        border-radius: 8px;
+      }
+      .sig-presets { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+      .sig-preset-btn {
+        display: flex; flex-direction: column; align-items: center; gap: 6px;
+        padding: 10px 14px; border: 2px solid #dde5dd; border-radius: 8px;
+        cursor: pointer; background: #fff; transition: border-color 0.2s;
+        font-size: 12px; color: #3a4a3a; font-family: inherit;
+      }
+      .sig-preset-btn:hover { border-color: #3d9400; }
+      .sig-preset-btn.selected { border-color: #2d7a00; background: #eaf5d8; }
+      .sig-preset-btn img { max-width: 120px; max-height: 50px; object-fit: contain; }
+      .sig-preset-btn.sig-missing img { display: none; }
+      .sig-preset-btn.sig-missing::after { content: '(Not configured)'; font-size: 11px; color: #a0b0a0; display: block; }
+      .sig-upload-label {
+        display: flex; flex-direction: column; align-items: center; gap: 6px;
+        padding: 10px 14px; border: 2px dashed #b8d89a; border-radius: 8px;
+        cursor: pointer; background: #fff; transition: border-color 0.2s;
+        font-size: 12px; color: #2d7a00; font-weight: 600;
+      }
+      .sig-upload-label:hover { border-color: #2d7a00; background: #f2f9ec; }
+      .sig-preview { margin-top: 10px; }
+      .sig-preview img {
+        max-width: 200px; max-height: 70px; object-fit: contain;
+        border: 1px solid #dde5dd; border-radius: 6px;
+        padding: 6px; background: #fff;
+      }
     </style>
   </head>
   <body>

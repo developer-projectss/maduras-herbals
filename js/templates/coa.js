@@ -67,7 +67,7 @@ export async function generatePDF(d, _fileName) {
   const y2 = drawSensoryTable(page, bold, regular, d, y1 - 20);
   const y3 = drawAnalyticalTable(page, bold, regular, d, y2 - 16);
   const y4 = drawMicroTable(page, bold, regular, d, y3 - 16);
-  drawFooterArea(page, bold, regular, y4 - 28);
+  await drawFooterArea(page, bold, regular, y4 - 28, doc, d);
   drawBottomBar(page, bold, regular, docNo, docDate);
 
   return await doc.save();
@@ -309,16 +309,31 @@ function drawMicroTable(page, bold, regular, d, startY) {
 // ═══════════════════════════════════════════════════════════════════════
 // FOOTER AREA — disclaimer + signature labels
 // ═══════════════════════════════════════════════════════════════════════
-function drawFooterArea(page, bold, regular, y) {
+async function drawFooterArea(page, bold, regular, y, doc, d) {
   page.drawText('*Properties may change season to season & Batch to Batch', {
-    x: ML, y: y - 10, size: 10, font: regular, color: COL.black,
+    x: ML, y: y - 10, size: 9, font: regular, color: COL.black,
   });
-  const sigY = y - 28;
-  page.drawText('Analyst', { x: ML + 30, y: sigY, size: 9, font: bold, color: COL.black });
-  page.drawText('QC Approved', {
-    x: PW - MR - bold.widthOfTextAtSize('QC Approved', 9) - 30, y: sigY,
-    size: 9, font: bold, color: COL.black,
-  });
+  const sigY = y - 32;
+
+  if (d._sigOption === 1) {
+    const text = 'This is a computer-generated document and does not require a signature.';
+    page.drawText(text, { x: ML, y: sigY, size: 8.5, font: regular, color: COL.black });
+  } else if (d._sigOption === 2 && d._sigBytes) {
+    try {
+      let sigImg;
+      try { sigImg = await doc.embedPng(d._sigBytes); }
+      catch { sigImg = await doc.embedJpg(d._sigBytes); }
+      const sigW = 130;
+      const sigH = (sigImg.height / sigImg.width) * sigW;
+      page.drawImage(sigImg, { x: ML + 20, y: sigY - sigH + 10, width: sigW, height: sigH });
+    } catch (e) { console.warn('[COA] Signature embed failed:', e); }
+  } else {
+    page.drawText('Analyst',     { x: ML + 30, y: sigY, size: 9, font: bold, color: COL.black });
+    page.drawText('QC Approved', {
+      x: PW - MR - bold.widthOfTextAtSize('QC Approved', 9) - 30,
+      y: sigY, size: 9, font: bold, color: COL.black,
+    });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════

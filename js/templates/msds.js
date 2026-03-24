@@ -179,7 +179,7 @@ export async function generatePDF(d, _fileName) {
     ['Regulatory Information', d.regulatory_info || 'Not available'],
   ]);
   y -= 10;
-  drawSectionText(p3, bold, regular, y, 'SECTION 16. ADDITIONAL INFORMATION',
+  y = drawSectionText(p3, bold, regular, y, 'SECTION 16. ADDITIONAL INFORMATION',
     d.additional_info ||
     'This information is provided for documentation purposes only. This product is not ' +
     'considered hazardous. The complete range of conditions or methods of use are beyond ' +
@@ -195,6 +195,7 @@ export async function generatePDF(d, _fileName) {
     'necessary. All health and safety information contained in this bulletin should be ' +
     'provided to your employees or customer',
     false);
+  await drawSignatureArea(p3, regular, y - 16, doc, d);
   drawPageFooter(p3, regular, 3, true);
 
   return await doc.save();
@@ -412,6 +413,25 @@ function drawSection3(page, bold, regular, y, d) {
   y = drawRow(page, bold, regular, y, 'Ingestion',    d.ingestion_hazard);
   y = drawRow(page, bold, regular, y, 'Inhalation',   d.inhalation_hazard);
   return y;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SIGNATURE AREA — bottom of page 3
+// ═══════════════════════════════════════════════════════════════════════
+async function drawSignatureArea(page, regular, y, doc, d) {
+  if (d._sigOption === 1) {
+    const text = 'This is a computer-generated document and does not require a signature.';
+    page.drawText(text, { x: ML, y, size: 8, font: regular, color: COL.black });
+  } else if (d._sigOption === 2 && d._sigBytes) {
+    try {
+      let sigImg;
+      try { sigImg = await doc.embedPng(d._sigBytes); }
+      catch { sigImg = await doc.embedJpg(d._sigBytes); }
+      const sigW = 130;
+      const sigH = (sigImg.height / sigImg.width) * sigW;
+      page.drawImage(sigImg, { x: ML + 20, y: y - sigH + 10, width: sigW, height: sigH });
+    } catch (e) { console.warn('[MSDS] Signature embed failed:', e); }
+  }
 }
 
 // ── Sections 15 & 16: header bar + plain paragraph text ──────────────
