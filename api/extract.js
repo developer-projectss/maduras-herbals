@@ -162,7 +162,7 @@ export default async function handler(req, res) {
       'content-type':      'application/json',
     },
     body: JSON.stringify({
-      model:      'claude-opus-4-6',
+      model:      'claude-sonnet-4-6',
       max_tokens: 2048,
       system:     systemPrompt,
       messages: [{
