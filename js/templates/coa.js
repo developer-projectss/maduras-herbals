@@ -67,17 +67,16 @@ export async function generatePDF(d, _fileName) {
 
   drawWatermark(ctx.page, logoImg);
   drawHeader(ctx.page, bold, regular, boldOblique, logoImg);
-  const y1 = drawProductInfo(ctx.page, bold, regular, d);
-
   if (d.sections && Array.isArray(d.sections) && d.sections.length) {
-    // Dynamic sections mode
-    let y = y1 - 20;
+    // Dynamic sections mode — all sections including product info come from d.sections
+    let y = PH - 120;
     for (const sec of d.sections) {
       y = drawDynamicCOASection(ctx, sec, y) - 16;
     }
     await drawFooterArea(ctx.page, bold, regular, y - 12, doc, d);
   } else {
-    // Legacy mode — flat extracted fields
+    // Legacy mode — flat extracted fields (no edit step)
+    const y1 = drawProductInfo(ctx.page, bold, regular, d);
     const y2 = drawSensoryTable(ctx, d, y1 - 20);
     const y3 = drawAnalyticalTable(ctx, d, y2 - 16);
     const y4 = drawMicroTable(ctx, d, y3 - 16);

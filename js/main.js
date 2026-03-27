@@ -407,6 +407,19 @@ function renderCOAEditor(data) {
 
   const defaultSections = [
     {
+      title: 'PRODUCT INFORMATION',
+      type:  '2col',
+      rows: [
+        { c1: 'Product Name',        c2: data.product_name        || '' },
+        { c1: 'Botanical Name',      c2: data.botanical_name      || '' },
+        { c1: 'Country of Origin',   c2: data.country_of_origin   || '' },
+        { c1: 'Batch Size',          c2: data.batch_size          || '' },
+        { c1: 'Batch No',            c2: data.batch_no            || '' },
+        { c1: 'Date of Manufacture', c2: data.date_of_manufacture || '' },
+        { c1: 'Date of Expiry',      c2: data.date_of_expiry      || '' },
+      ],
+    },
+    {
       title: 'SENSORY DATA',
       type:  '2col',
       rows:  Array.isArray(data.sensory_data)
@@ -434,19 +447,6 @@ function renderCOAEditor(data) {
 
   sigSelectedBytes = null;
   editContent.innerHTML = sigControlHTML() + docControlHTML('COA-', 'maduras_docNum_coa') + `
-    <div class="edit-group">
-      <div class="edit-group-title">Product Information</div>
-      <div class="edit-fields">
-        <div class="edit-field"><label>Product Name</label><input type="text" id="ef_product_name" value="${esc(data.product_name || '')}" /></div>
-        <div class="edit-field"><label>Botanical Name</label><input type="text" id="ef_botanical_name" value="${esc(data.botanical_name || '')}" /></div>
-        <div class="edit-field"><label>Country of Origin</label><input type="text" id="ef_country_of_origin" value="${esc(data.country_of_origin || '')}" /></div>
-        <div class="edit-field"><label>Batch Size</label><input type="text" id="ef_batch_size" value="${esc(data.batch_size || '')}" /></div>
-        <div class="edit-field"><label>Batch No</label><input type="text" id="ef_batch_no" value="${esc(data.batch_no || '')}" /></div>
-        <div class="edit-field"><label>Date of Manufacture</label><input type="text" id="ef_date_of_manufacture" value="${esc(data.date_of_manufacture || '')}" /></div>
-        <div class="edit-field"><label>Date of Expiry</label><input type="text" id="ef_date_of_expiry" value="${esc(data.date_of_expiry || '')}" /></div>
-      </div>
-    </div>
-
     <div style="margin-bottom:6px;padding:10px 14px;background:#fffbe6;border:1.5px solid #f0c040;border-radius:7px;font-size:12px;color:#7a5800">
       <b>Full Edit Mode:</b> Rename section titles, add/delete rows, remove sections, or add new 2-col or 3-col sections.
     </div>
@@ -462,8 +462,6 @@ function renderCOAEditor(data) {
 }
 
 function readCOAData() {
-  const gv = (id) => (document.getElementById('ef_' + id) || {}).value || '';
-
   const sections = [];
   document.querySelectorAll('.coa-section').forEach(sec => {
     const title  = (sec.querySelector('.coa-sec-title')?.value || '').trim();
@@ -485,18 +483,11 @@ function readCOAData() {
   if (sigOption === 2 && !sigSelectedBytes) throw new Error('Please select or upload a signature image for Option 2.');
 
   return {
-    _edited:             true,
-    _docNo:              (document.getElementById('ef__docNo')?.value  || '').trim(),
-    _docDate:            formatDateForPDF(document.getElementById('ef__docDate')?.value),
-    _sigOption:          sigOption,
-    _sigBytes:           sigOption === 2 ? sigSelectedBytes : null,
-    product_name:        gv('product_name'),
-    botanical_name:      gv('botanical_name'),
-    country_of_origin:   gv('country_of_origin'),
-    batch_size:          gv('batch_size'),
-    batch_no:            gv('batch_no'),
-    date_of_manufacture: gv('date_of_manufacture'),
-    date_of_expiry:      gv('date_of_expiry'),
+    _edited:    true,
+    _docNo:     (document.getElementById('ef__docNo')?.value  || '').trim(),
+    _docDate:   formatDateForPDF(document.getElementById('ef__docDate')?.value),
+    _sigOption: sigOption,
+    _sigBytes:  sigOption === 2 ? sigSelectedBytes : null,
     sections,
   };
 }
