@@ -151,130 +151,139 @@ export async function generatePDF(d, _fileName) {
   // ── Draw all sections ─────────────────────────────────────────────
   addPage(); // start page 1
 
-  drawSec('SECTION 1. PRODUCT AND COMPANY IDENTIFICATION', [
-    ['Product Name',    d.product_name],
-    ['Product Use',     'For personal care formulation'],
-    ['Company Name',    'Maduras Herbals Pvt Ltd'],
-    ['Company Address', 'Reddiyur, Salem-636004, Tamil Nadu, India.'],
-    ['Phone Number',    '+91 8644823456'],
-  ]);
-  gap(8);
+  if (d.sections && Array.isArray(d.sections) && d.sections.length) {
+    // Dynamic mode — user built/edited sections in preview
+    for (const sec of d.sections) {
+      drawSec(sec.title, (sec.rows || []).map(r => [r.label || '', r.value || '']));
+      gap(8);
+    }
+  } else {
+    // Legacy mode — flat field object from extractor (no edit step)
+    drawSec('SECTION 1. PRODUCT AND COMPANY IDENTIFICATION', [
+      ['Product Name',    d.product_name],
+      ['Product Use',     'For personal care formulation'],
+      ['Company Name',    'Maduras Herbals Pvt Ltd'],
+      ['Company Address', 'Reddiyur, Salem-636004, Tamil Nadu, India.'],
+      ['Phone Number',    '+91 8644823456'],
+    ]);
+    gap(8);
 
-  drawSec('SECTION 2. COMPOSITION/INGREDIENT INFORMATION', [
-    ['INCI Name',            d.inci_name],
-    ['CAS No',               d.cas_no],
-    ['Hazardous Components', d.hazardous_components],
-  ]);
-  gap(8);
+    drawSec('SECTION 2. COMPOSITION/INGREDIENT INFORMATION', [
+      ['INCI Name',            d.inci_name],
+      ['CAS No',               d.cas_no],
+      ['Hazardous Components', d.hazardous_components],
+    ]);
+    gap(8);
 
-  drawSec3();
-  gap(8);
+    drawSec3();
+    gap(8);
 
-  drawSec('SECTION 4. FIRST-AID MEASURES', [
-    ['Eyes',       d.first_aid_eyes],
-    ['Skin',       d.first_aid_skin],
-    ['Ingestion',  d.first_aid_ingestion],
-    ['Inhalation', d.first_aid_inhalation],
-  ]);
-  gap(8);
+    drawSec('SECTION 4. FIRST-AID MEASURES', [
+      ['Eyes',       d.first_aid_eyes],
+      ['Skin',       d.first_aid_skin],
+      ['Ingestion',  d.first_aid_ingestion],
+      ['Inhalation', d.first_aid_inhalation],
+    ]);
+    gap(8);
 
-  drawSec('SECTION 5. FIRE FIGHTING MEASURES', [
-    ['Extinguishing media\nrecommended',  d.extinguishing_media],
-    ['Special Firefighting\nProcedures',  d.firefighting_procedures],
-    ['Unusual Fire &\nExplosion Hazards', d.fire_explosion_hazards],
-  ]);
-  gap(8);
+    drawSec('SECTION 5. FIRE FIGHTING MEASURES', [
+      ['Extinguishing media\nrecommended',  d.extinguishing_media],
+      ['Special Firefighting\nProcedures',  d.firefighting_procedures],
+      ['Unusual Fire &\nExplosion Hazards', d.fire_explosion_hazards],
+    ]);
+    gap(8);
 
-  drawSec('SECTION 6. ACCIDENTAL RELEASE MEASURES (STEPS FOR SPILLS)', [
-    ['Methods for Cleaning Up', d.cleaning_methods],
-  ]);
-  gap(8);
+    drawSec('SECTION 6. ACCIDENTAL RELEASE MEASURES (STEPS FOR SPILLS)', [
+      ['Methods for Cleaning Up', d.cleaning_methods],
+    ]);
+    gap(8);
 
-  drawSec('SECTION 7. HANDLING AND STORAGE', [
-    ['Safe Handling',                                    d.safe_handling],
-    ['Requirements for\nStorage Areas and\nContainers', d.storage_requirements],
-  ]);
-  gap(8);
+    drawSec('SECTION 7. HANDLING AND STORAGE', [
+      ['Safe Handling',                                    d.safe_handling],
+      ['Requirements for\nStorage Areas and\nContainers', d.storage_requirements],
+    ]);
+    gap(8);
 
-  drawSec('SECTION 8. EXPOSURE CONTROL/PERSONAL PROTECTION', [
-    ['Eye',                    d.exposure_eye],
-    ['Skin/Body',              d.exposure_skin],
-    ['Respiratory',            d.exposure_respiratory],
-    ['Other',                  d.exposure_other],
-    ['Work/Hygiene\nPractice', d.work_hygiene_practice],
-  ]);
-  gap(8);
+    drawSec('SECTION 8. EXPOSURE CONTROL/PERSONAL PROTECTION', [
+      ['Eye',                    d.exposure_eye],
+      ['Skin/Body',              d.exposure_skin],
+      ['Respiratory',            d.exposure_respiratory],
+      ['Other',                  d.exposure_other],
+      ['Work/Hygiene\nPractice', d.work_hygiene_practice],
+    ]);
+    gap(8);
 
-  drawSec('SECTION 9. PHYSICAL AND CHEMICAL PROPERTIES', [
-    ['Physical State', d.physical_state],
-    ['Color',          d.color],
-    ['Odor',           d.odor],
-    ['Flash Point',    d.flash_point],
-  ]);
-  gap(8);
+    drawSec('SECTION 9. PHYSICAL AND CHEMICAL PROPERTIES', [
+      ['Physical State', d.physical_state],
+      ['Color',          d.color],
+      ['Odor',           d.odor],
+      ['Flash Point',    d.flash_point],
+    ]);
+    gap(8);
 
-  drawSec('SECTION 10. STABILITY AND REACTIVITY', [
-    ['Stability',                              d.stability],
-    ['Incompatibility\n(Materials to Avoid)',  d.incompatibility],
-    ['Conditions to Avoid',                    d.conditions_to_avoid],
-    ['Hazardous Decomposition\nor Byproducts', d.hazardous_decomposition],
-  ]);
-  gap(8);
+    drawSec('SECTION 10. STABILITY AND REACTIVITY', [
+      ['Stability',                              d.stability],
+      ['Incompatibility\n(Materials to Avoid)',  d.incompatibility],
+      ['Conditions to Avoid',                    d.conditions_to_avoid],
+      ['Hazardous Decomposition\nor Byproducts', d.hazardous_decomposition],
+    ]);
+    gap(8);
 
-  drawSec('SECTION 11. TOXICOLOGICAL INFORMATION', [
-    ['Toxicity', d.toxicity],
-  ]);
-  gap(8);
+    drawSec('SECTION 11. TOXICOLOGICAL INFORMATION', [
+      ['Toxicity', d.toxicity],
+    ]);
+    gap(8);
 
-  drawSec('SECTION 12. ECOLOGICAL INFORMATION', [
-    ['Degradability', d.degradability],
-  ]);
-  gap(8);
+    drawSec('SECTION 12. ECOLOGICAL INFORMATION', [
+      ['Degradability', d.degradability],
+    ]);
+    gap(8);
 
-  drawSec('SECTION 13. DISPOSAL CONSIDERATIONS', [
-    ['Waste Disposal Methods', d.waste_disposal],
-  ]);
-  gap(8);
+    drawSec('SECTION 13. DISPOSAL CONSIDERATIONS', [
+      ['Waste Disposal Methods', d.waste_disposal],
+    ]);
+    gap(8);
 
-  drawSec('SECTION 14. TRANSPORT INFORMATION', [
-    ['DOT Classification',   d.dot_classification],
-    ['IATA',                 d.iata],
-    ['IMDG',                 d.imdg],
-    ['Hazard symbol',        d.hazard_symbol],
-    ['Proper Shipping Name', d.proper_shipping_name],
-    ['Hazard',               d.hazard],
-    ['ID Number',            d.id_number],
-    ['Label',                d.label],
-  ]);
-  gap(7);
+    drawSec('SECTION 14. TRANSPORT INFORMATION', [
+      ['DOT Classification',   d.dot_classification],
+      ['IATA',                 d.iata],
+      ['IMDG',                 d.imdg],
+      ['Hazard symbol',        d.hazard_symbol],
+      ['Proper Shipping Name', d.proper_shipping_name],
+      ['Hazard',               d.hazard],
+      ['ID Number',            d.id_number],
+      ['Label',                d.label],
+    ]);
+    gap(7);
 
-  ensureSpace(LH + 4);
-  pm.page.drawText('This product is not regulated as a hazardous material for transport.', {
-    x: ML, y: pm.y, size: FS, font: regular, color: COL.black,
-  });
-  pm.y -= LH;
-  gap(8);
+    ensureSpace(LH + 4);
+    pm.page.drawText('This product is not regulated as a hazardous material for transport.', {
+      x: ML, y: pm.y, size: FS, font: regular, color: COL.black,
+    });
+    pm.y -= LH;
+    gap(8);
 
-  drawSec('SECTION 15. REGULATORY INFORMATION', [
-    ['Regulatory Information', d.regulatory_info || 'Not available'],
-  ]);
-  gap(10);
+    drawSec('SECTION 15. REGULATORY INFORMATION', [
+      ['Regulatory Information', d.regulatory_info || 'Not available'],
+    ]);
+    gap(10);
 
-  drawSecText('SECTION 16. ADDITIONAL INFORMATION',
-    d.additional_info ||
-    'This information is provided for documentation purposes only. This product is not ' +
-    'considered hazardous. The complete range of conditions or methods of use are beyond ' +
-    'our control therefore we do not assume any responsibility and expressly disclaim any ' +
-    'liability for any use of this product. Information contained herein is believed to be ' +
-    'true and accurate however, all statements or suggestions are made without warranty, ' +
-    'expressed or implied, regarding accuracy of the information, the hazards connected ' +
-    'with the use of the material or the results to be obtained from the use thereof. ' +
-    'Compliance with all applicable federal, state, and local laws and local regulations ' +
-    'remains the responsibility of the user. This safety sheet cannot cover all possible ' +
-    'situations which the user may experience during processing. Each aspect of your ' +
-    'operation should be examined to determine if, or were, additional precautions may be ' +
-    'necessary. All health and safety information contained in this bulletin should be ' +
-    'provided to your employees or customer');
+    drawSecText('SECTION 16. ADDITIONAL INFORMATION',
+      d.additional_info ||
+      'This information is provided for documentation purposes only. This product is not ' +
+      'considered hazardous. The complete range of conditions or methods of use are beyond ' +
+      'our control therefore we do not assume any responsibility and expressly disclaim any ' +
+      'liability for any use of this product. Information contained herein is believed to be ' +
+      'true and accurate however, all statements or suggestions are made without warranty, ' +
+      'expressed or implied, regarding accuracy of the information, the hazards connected ' +
+      'with the use of the material or the results to be obtained from the use thereof. ' +
+      'Compliance with all applicable federal, state, and local laws and local regulations ' +
+      'remains the responsibility of the user. This safety sheet cannot cover all possible ' +
+      'situations which the user may experience during processing. Each aspect of your ' +
+      'operation should be examined to determine if, or were, additional precautions may be ' +
+      'necessary. All health and safety information contained in this bulletin should be ' +
+      'provided to your employees or customer');
+  }
 
   // ── Signature area ────────────────────────────────────────────────
   ensureSpace(50);

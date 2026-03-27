@@ -213,6 +213,23 @@ editContent.addEventListener('click', (e) => {
     t.closest('tr').remove();
     return;
   }
+  // MSDS: remove entire section
+  if (t.classList.contains('del-section-btn')) {
+    if (!confirm('Remove this entire section?')) return;
+    t.closest('.msds-section').remove();
+    return;
+  }
+  // MSDS: add row inside a specific section
+  if (t.classList.contains('msds-add-row')) {
+    t.closest('.msds-section').querySelector('.msds-tbody').insertAdjacentHTML('beforeend', makeRow2('', ''));
+    return;
+  }
+  // MSDS: add a brand-new section at the bottom
+  if (t.id === 'addMSDSSection') {
+    document.getElementById('msds-sections-container').insertAdjacentHTML('beforeend', makeMSDSSection('NEW SECTION TITLE', []));
+    return;
+  }
+  // COA row buttons
   if (t.id === 'addSensoryRow') {
     document.getElementById('tbody_sensory').insertAdjacentHTML('beforeend', makeRow2('', ''));
     return;
@@ -385,153 +402,131 @@ function readCOAData() {
 function renderMSDSEditor(data) {
   const d = data || {};
 
-  function grp(title, fields) {
-    return `<div class="edit-group">
-      <div class="edit-group-title">${title}</div>
-      <div class="edit-fields">
-        ${fields.map(([id, label, wide, ta]) => `
-          <div class="edit-field${wide ? ' full-width' : ''}">
-            <label>${label}</label>
-            ${ta
-              ? `<textarea id="ef_${id}">${esc(d[id])}</textarea>`
-              : `<input type="text" id="ef_${id}" value="${esc(d[id])}" />`}
-          </div>`).join('')}
-      </div>
-    </div>`;
-  }
+  // If data already has sections (re-edit), use them; otherwise build defaults from flat fields
+  const sections = d.sections || [
+    { title: 'SECTION 1. PRODUCT AND COMPANY IDENTIFICATION', rows: [
+      { label: 'Product Name',    value: d.product_name || '' },
+      { label: 'Product Use',     value: 'For personal care formulation' },
+      { label: 'Company Name',    value: 'Maduras Herbals Pvt Ltd' },
+      { label: 'Company Address', value: 'Reddiyur, Salem-636004, Tamil Nadu, India.' },
+      { label: 'Phone Number',    value: '+91 8644823456' },
+    ]},
+    { title: 'SECTION 2. COMPOSITION/INGREDIENT INFORMATION', rows: [
+      { label: 'INCI Name',            value: d.inci_name || '' },
+      { label: 'CAS No',               value: d.cas_no || '' },
+      { label: 'Hazardous Components', value: d.hazardous_components || '' },
+    ]},
+    { title: 'SECTION 3. HAZARDS IDENTIFICATION', rows: [
+      { label: 'Routes of Entry', value: '' },
+      { label: 'Eye Contact',     value: d.eye_contact || '' },
+      { label: 'Skin Contact',    value: d.skin_contact || '' },
+      { label: 'Ingestion',       value: d.ingestion_hazard || '' },
+      { label: 'Inhalation',      value: d.inhalation_hazard || '' },
+    ]},
+    { title: 'SECTION 4. FIRST-AID MEASURES', rows: [
+      { label: 'Eyes',       value: d.first_aid_eyes || '' },
+      { label: 'Skin',       value: d.first_aid_skin || '' },
+      { label: 'Ingestion',  value: d.first_aid_ingestion || '' },
+      { label: 'Inhalation', value: d.first_aid_inhalation || '' },
+    ]},
+    { title: 'SECTION 5. FIRE FIGHTING MEASURES', rows: [
+      { label: 'Extinguishing Media Recommended',  value: d.extinguishing_media || '' },
+      { label: 'Special Firefighting Procedures',  value: d.firefighting_procedures || '' },
+      { label: 'Unusual Fire & Explosion Hazards', value: d.fire_explosion_hazards || '' },
+    ]},
+    { title: 'SECTION 6. ACCIDENTAL RELEASE MEASURES (STEPS FOR SPILLS)', rows: [
+      { label: 'Methods for Cleaning Up', value: d.cleaning_methods || '' },
+    ]},
+    { title: 'SECTION 7. HANDLING AND STORAGE', rows: [
+      { label: 'Safe Handling',                              value: d.safe_handling || '' },
+      { label: 'Requirements for Storage Areas and Containers', value: d.storage_requirements || '' },
+    ]},
+    { title: 'SECTION 8. EXPOSURE CONTROL/PERSONAL PROTECTION', rows: [
+      { label: 'Eye',                   value: d.exposure_eye || '' },
+      { label: 'Skin/Body',             value: d.exposure_skin || '' },
+      { label: 'Respiratory',           value: d.exposure_respiratory || '' },
+      { label: 'Other',                 value: d.exposure_other || '' },
+      { label: 'Work/Hygiene Practice', value: d.work_hygiene_practice || '' },
+    ]},
+    { title: 'SECTION 9. PHYSICAL AND CHEMICAL PROPERTIES', rows: [
+      { label: 'Physical State', value: d.physical_state || '' },
+      { label: 'Color',          value: d.color || '' },
+      { label: 'Odor',           value: d.odor || '' },
+      { label: 'Flash Point',    value: d.flash_point || '' },
+    ]},
+    { title: 'SECTION 10. STABILITY AND REACTIVITY', rows: [
+      { label: 'Stability',                             value: d.stability || '' },
+      { label: 'Incompatibility (Materials to Avoid)',  value: d.incompatibility || '' },
+      { label: 'Conditions to Avoid',                   value: d.conditions_to_avoid || '' },
+      { label: 'Hazardous Decomposition or Byproducts', value: d.hazardous_decomposition || '' },
+    ]},
+    { title: 'SECTION 11. TOXICOLOGICAL INFORMATION', rows: [
+      { label: 'Toxicity', value: d.toxicity || '' },
+    ]},
+    { title: 'SECTION 12. ECOLOGICAL INFORMATION', rows: [
+      { label: 'Degradability', value: d.degradability || '' },
+    ]},
+    { title: 'SECTION 13. DISPOSAL CONSIDERATIONS', rows: [
+      { label: 'Waste Disposal Methods', value: d.waste_disposal || '' },
+    ]},
+    { title: 'SECTION 14. TRANSPORT INFORMATION', rows: [
+      { label: 'DOT Classification',   value: d.dot_classification || '' },
+      { label: 'IATA',                 value: d.iata || '' },
+      { label: 'IMDG',                 value: d.imdg || '' },
+      { label: 'Hazard Symbol',        value: d.hazard_symbol || '' },
+      { label: 'Proper Shipping Name', value: d.proper_shipping_name || '' },
+      { label: 'Hazard',               value: d.hazard || '' },
+      { label: 'ID Number',            value: d.id_number || '' },
+      { label: 'Label',                value: d.label || '' },
+    ]},
+    { title: 'SECTION 15. REGULATORY INFORMATION', rows: [
+      { label: 'Regulatory Information', value: d.regulatory_info || 'Not available' },
+    ]},
+    { title: 'SECTION 16. ADDITIONAL INFORMATION', rows: [
+      { label: 'Additional Information', value: d.additional_info || 'This information is provided for documentation purposes only. This product is not considered hazardous. The complete range of conditions or methods of use are beyond our control therefore we do not assume any responsibility.' },
+    ]},
+  ];
 
   sigSelectedBytes = null;
-  editContent.innerHTML = sigControlHTML() + docControlHTML('MSDS-', 'maduras_docNum_msds') +
-    grp('Section 1 &amp; 2: Product &amp; Composition', [
-      ['product_name',         'Product Name',         false, false],
-      ['inci_name',            'INCI Name',            false, false],
-      ['cas_no',               'CAS No',               false, false],
-      ['hazardous_components', 'Hazardous Components', true,  true ],
-    ]) +
-    grp('Section 3: Hazards Identification', [
-      ['eye_contact',       'Eye Contact', false, true],
-      ['skin_contact',      'Skin Contact', false, true],
-      ['ingestion_hazard',  'Ingestion',   false, true],
-      ['inhalation_hazard', 'Inhalation',  false, true],
-    ]) +
-    grp('Section 4: First-Aid Measures', [
-      ['first_aid_eyes',       'Eyes',       false, true],
-      ['first_aid_skin',       'Skin',       false, true],
-      ['first_aid_ingestion',  'Ingestion',  false, true],
-      ['first_aid_inhalation', 'Inhalation', false, true],
-    ]) +
-    grp('Section 5: Fire Fighting Measures', [
-      ['extinguishing_media',     'Extinguishing Media',      true, true],
-      ['firefighting_procedures', 'Firefighting Procedures',  true, true],
-      ['fire_explosion_hazards',  'Fire / Explosion Hazards', true, true],
-    ]) +
-    grp('Section 6 &amp; 7: Release, Handling &amp; Storage', [
-      ['cleaning_methods',     'Cleaning Methods',     true, true],
-      ['safe_handling',        'Safe Handling',        true, true],
-      ['storage_requirements', 'Storage Requirements', true, true],
-    ]) +
-    grp('Section 8: Exposure Control / Personal Protection', [
-      ['exposure_eye',          'Eye',           false, true],
-      ['exposure_skin',         'Skin / Body',   false, true],
-      ['exposure_respiratory',  'Respiratory',   false, true],
-      ['exposure_other',        'Other',         false, true],
-      ['work_hygiene_practice', 'Work Hygiene',  true,  true],
-    ]) +
-    grp('Section 9: Physical &amp; Chemical Properties', [
-      ['physical_state', 'Physical State', false, false],
-      ['color',          'Color',          false, false],
-      ['odor',           'Odor',           false, false],
-      ['flash_point',    'Flash Point',    false, false],
-    ]) +
-    grp('Section 10: Stability &amp; Reactivity', [
-      ['stability',               'Stability',               false, true],
-      ['incompatibility',         'Incompatibility',         false, true],
-      ['conditions_to_avoid',     'Conditions to Avoid',     false, true],
-      ['hazardous_decomposition', 'Hazardous Decomposition', true,  true],
-    ]) +
-    grp('Section 11 &amp; 12: Toxicology &amp; Ecology', [
-      ['toxicity',      'Toxicity',      true, true],
-      ['degradability', 'Degradability', true, true],
-    ]) +
-    grp('Section 13: Disposal', [
-      ['waste_disposal', 'Waste Disposal Methods', true, true],
-    ]) +
-    grp('Section 14: Transport Information', [
-      ['dot_classification',   'DOT Classification',  false, false],
-      ['iata',                 'IATA',                false, false],
-      ['imdg',                 'IMDG',                false, false],
-      ['hazard_symbol',        'Hazard Symbol',       false, false],
-      ['proper_shipping_name', 'Proper Shipping Name',true,  false],
-      ['hazard',               'Hazard',              false, false],
-      ['id_number',            'ID Number',           false, false],
-      ['label',                'Label',               false, false],
-    ]) +
-    grp('Section 15 &amp; 16: Regulatory &amp; Additional Info', [
-      ['regulatory_info', 'Regulatory Info', true, true],
-      ['additional_info', 'Additional Info', true, true],
-    ]);
+  editContent.innerHTML = sigControlHTML() + docControlHTML('MSDS-', 'maduras_docNum_msds') + `
+    <div style="margin-bottom:6px;padding:10px 14px;background:#fffbe6;border:1.5px solid #f0c040;border-radius:7px;font-size:12px;color:#7a5800">
+      <b>Full Edit Mode:</b> Rename section titles, add/delete rows inside each section, remove sections, or add new sections from scratch.
+    </div>
+    <div id="msds-sections-container">
+      ${sections.map(sec => makeMSDSSection(sec.title, sec.rows)).join('')}
+    </div>
+    <div style="margin-top:14px;padding-bottom:10px;text-align:center">
+      <button class="add-row-btn" id="addMSDSSection" type="button" style="padding:10px 28px;font-size:13px">+ Add New Section</button>
+    </div>
+  `;
   setupSigHandlers();
 }
 
 function readMSDSData() {
-  const gv = (id) => {
-    const el = document.getElementById('ef_' + id);
-    return el ? (el.value || '').trim() : '';
-  };
+  const sections = [];
+  document.querySelectorAll('.msds-section').forEach(sec => {
+    const title = (sec.querySelector('.msds-sec-title')?.value || '').trim();
+    const rows = [];
+    sec.querySelectorAll('.msds-tbody tr').forEach(tr => {
+      const inputs = tr.querySelectorAll('input');
+      rows.push({
+        label: (inputs[0]?.value || '').trim(),
+        value: (inputs[1]?.value || '').trim(),
+      });
+    });
+    if (title) sections.push({ title, rows });
+  });
 
   const sigOption = parseInt(document.querySelector('input[name="sigOption"]:checked')?.value || '1');
   if (sigOption === 2 && !sigSelectedBytes) throw new Error('Please select or upload a signature image for Option 2.');
 
   return {
-    _edited:                 true,
-    _docNo:                  (document.getElementById('ef__docNo')?.value  || '').trim(),
-    _docDate:                formatDateForPDF(document.getElementById('ef__docDate')?.value),
-    _sigOption:              sigOption,
-    _sigBytes:               sigOption === 2 ? sigSelectedBytes : null,
-    product_name:            gv('product_name'),
-    inci_name:               gv('inci_name'),
-    cas_no:                  gv('cas_no'),
-    hazardous_components:    gv('hazardous_components'),
-    eye_contact:             gv('eye_contact'),
-    skin_contact:            gv('skin_contact'),
-    ingestion_hazard:        gv('ingestion_hazard'),
-    inhalation_hazard:       gv('inhalation_hazard'),
-    first_aid_eyes:          gv('first_aid_eyes'),
-    first_aid_skin:          gv('first_aid_skin'),
-    first_aid_ingestion:     gv('first_aid_ingestion'),
-    first_aid_inhalation:    gv('first_aid_inhalation'),
-    extinguishing_media:     gv('extinguishing_media'),
-    firefighting_procedures: gv('firefighting_procedures'),
-    fire_explosion_hazards:  gv('fire_explosion_hazards'),
-    cleaning_methods:        gv('cleaning_methods'),
-    safe_handling:           gv('safe_handling'),
-    storage_requirements:    gv('storage_requirements'),
-    exposure_eye:            gv('exposure_eye'),
-    exposure_skin:           gv('exposure_skin'),
-    exposure_respiratory:    gv('exposure_respiratory'),
-    exposure_other:          gv('exposure_other'),
-    work_hygiene_practice:   gv('work_hygiene_practice'),
-    physical_state:          gv('physical_state'),
-    color:                   gv('color'),
-    odor:                    gv('odor'),
-    flash_point:             gv('flash_point'),
-    stability:               gv('stability'),
-    incompatibility:         gv('incompatibility'),
-    conditions_to_avoid:     gv('conditions_to_avoid'),
-    hazardous_decomposition: gv('hazardous_decomposition'),
-    toxicity:                gv('toxicity'),
-    degradability:           gv('degradability'),
-    waste_disposal:          gv('waste_disposal'),
-    dot_classification:      gv('dot_classification'),
-    iata:                    gv('iata'),
-    imdg:                    gv('imdg'),
-    hazard_symbol:           gv('hazard_symbol'),
-    proper_shipping_name:    gv('proper_shipping_name'),
-    hazard:                  gv('hazard'),
-    id_number:               gv('id_number'),
-    label:                   gv('label'),
-    regulatory_info:         gv('regulatory_info'),
-    additional_info:         gv('additional_info'),
+    _edited:    true,
+    _docNo:     (document.getElementById('ef__docNo')?.value  || '').trim(),
+    _docDate:   formatDateForPDF(document.getElementById('ef__docDate')?.value),
+    _sigOption: sigOption,
+    _sigBytes:  sigOption === 2 ? sigSelectedBytes : null,
+    sections,
   };
 }
 
@@ -680,6 +675,30 @@ function makeRow3(v1, v2, v3) {
     <td><input type="text" value="${esc(v3)}" /></td>
     <td><button class="del-btn" type="button" title="Remove row">✕</button></td>
   </tr>`;
+}
+
+function makeMSDSSection(title, rows) {
+  return `
+    <div class="edit-group msds-section">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <input class="msds-sec-title" type="text" value="${esc(title)}"
+          style="flex:1;font-weight:700;font-size:12px;padding:6px 10px;border:1.5px solid #bbb;border-radius:5px;background:#f7f7f7;color:#222" />
+        <button class="del-section-btn" type="button"
+          style="background:#e74c3c;color:#fff;border:none;padding:6px 13px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">
+          ✕ Remove Section
+        </button>
+      </div>
+      <div class="edit-table-wrap">
+        <table class="edit-table">
+          <thead><tr><th style="width:35%">Label</th><th>Value</th><th class="del-col"></th></tr></thead>
+          <tbody class="msds-tbody">
+            ${rows.map(r => makeRow2(r.label, r.value)).join('')}
+          </tbody>
+        </table>
+      </div>
+      <button class="add-row-btn msds-add-row" type="button">+ Add Row</button>
+    </div>
+  `;
 }
 
 
