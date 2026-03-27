@@ -80,6 +80,37 @@ function esc(str) {
 }
 
 
+// ── Show template section when either input is ready ─────────────────
+function updateInputState() {
+  const hasPdf  = !!uploadedPdfBytes;
+  const hasName = !!productNameInput.value.trim();
+
+  // Show template select once either input is provided
+  if (hasPdf || hasName) {
+    show(templateSection);
+  }
+
+  // Show generate section once template is selected
+  if (templateSelect.value && (hasPdf || hasName)) {
+    show(generateSection);
+  }
+
+  // Show correct button based on which input is active
+  if (hasPdf) {
+    generateBtn.style.display   = '';
+    genFromNameBtn.style.display = 'none';
+    generateBtn.disabled = !templateSelect.value;
+  } else if (hasName) {
+    generateBtn.style.display    = 'none';
+    genFromNameBtn.style.display = '';
+    genFromNameBtn.disabled = !templateSelect.value;
+  } else {
+    generateBtn.style.display    = 'none';
+    genFromNameBtn.style.display = 'none';
+    hide(generateSection);
+  }
+}
+
 // ── File Upload ───────────────────────────────────────────────────────
 async function handleFile(file) {
   if (!file) return;
@@ -100,10 +131,10 @@ async function handleFile(file) {
 
   fileNameEl.textContent = file.name;
   show(fileInfo);
-  show(templateSection);
-  show(generateSection);
-  templateSelect.value = '';
-  generateBtn.disabled = true;
+  // Clear name input if switching to PDF mode
+  productNameInput.value = '';
+  templateSelect.value   = '';
+  updateInputState();
 }
 
 fileInput.addEventListener('change', (e) => { handleFile(e.target.files[0]); e.target.value = ''; });
@@ -120,18 +151,24 @@ uploadZone.addEventListener('drop', (e) => {
 
 // ── Template Selection ────────────────────────────────────────────────
 templateSelect.addEventListener('change', () => {
-  generateBtn.disabled = !templateSelect.value;
-  genFromNameBtn.disabled = !templateSelect.value || !productNameInput.value.trim();
   revokeBlob();
   hide(resultSection);
   hide(editSection);
   card.classList.remove('card--wide');
   extractedTemplateId = null;
   clearStatus();
+  updateInputState();
 });
 
 productNameInput.addEventListener('input', () => {
-  genFromNameBtn.disabled = !templateSelect.value || !productNameInput.value.trim();
+  // If user starts typing a name, clear any uploaded PDF
+  if (productNameInput.value.trim() && uploadedPdfBytes) {
+    uploadedPdfBytes = null;
+    uploadedFileName = '';
+    hide(fileInfo);
+    templateSelect.value = '';
+  }
+  updateInputState();
 });
 
 

@@ -785,11 +785,11 @@
           <div class="card-header">
             <div class="card-title">Generate PDF Document</div>
             <div class="card-sub">
-              Upload a supplier document, select a template and generate.
+              Upload a supplier PDF or enter a product name to get started.
             </div>
           </div>
 
-          <!-- Step 1: Upload -->
+          <!-- Step 1a: Upload -->
           <div class="upload-zone" id="uploadZone">
             <input type="file" id="fileInput" accept=".pdf" />
             <div class="upload-icon">📄</div>
@@ -805,12 +805,16 @@
             <button class="change-link" id="changeFileBtn">Change</button>
           </div>
 
-          <!-- Step 2: Template -->
+          <!-- Step 1b: OR product name -->
+          <div style="text-align:center;margin:12px 0 10px;color:#a0b0a0;font-size:12px;font-weight:600;letter-spacing:0.5px">— OR —</div>
+          <input type="text" id="productNameInput"
+            placeholder="Enter Product Name or INCI Name…"
+            style="width:100%;padding:9px 12px;border:1.5px solid #dde5dd;border-radius:7px;font-size:13px;font-family:inherit;color:#1a2a1a;background:#fafcfa;transition:border-color 0.2s;box-sizing:border-box;outline:none" />
+
+          <!-- Step 2: Template (shows after either input) -->
           <div class="section" id="templateSection">
             <hr class="divider" />
-            <label class="field-label" for="templateSelect"
-              >Select Template</label
-            >
+            <label class="field-label" for="templateSelect">Select Template</label>
             <select id="templateSelect">
               <option value="">— Choose a template —</option>
               <option value="coa">COA — Certificate of Analysis</option>
@@ -818,16 +822,12 @@
             </select>
           </div>
 
-          <!-- Step 3: Extract & Preview OR Generate from Name -->
+          <!-- Step 3: Action button (shows after template selected) -->
           <div class="section" id="generateSection">
-            <button class="btn btn-primary" id="generateBtn" disabled>
+            <button class="btn btn-primary" id="generateBtn" disabled style="display:none">
               Extract &amp; Preview
             </button>
-            <div style="text-align:center;margin:10px 0 8px;color:#a0b0a0;font-size:12px;font-weight:600;letter-spacing:0.5px">— OR —</div>
-            <input type="text" id="productNameInput"
-              placeholder="Enter Product Name or INCI Name to generate without PDF…"
-              style="width:100%;padding:9px 12px;border:1.5px solid #dde5dd;border-radius:7px;font-size:13px;font-family:inherit;outline:none;color:#1a2a1a;background:#fafcfa;transition:border-color 0.2s;box-sizing:border-box" />
-            <button class="btn btn-outline" id="genFromNameBtn" disabled style="margin-top:8px">
+            <button class="btn btn-outline" id="genFromNameBtn" disabled style="display:none">
               Generate from Name
             </button>
           </div>
