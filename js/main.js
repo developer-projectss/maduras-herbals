@@ -245,6 +245,84 @@ editContent.addEventListener('click', (e) => {
 });
 
 
+// ── Download as Word ─────────────────────────────────────────────────
+document.getElementById('downloadWordBtn').addEventListener('click', () => {
+  if (!extractedTemplateId) return;
+  try {
+    const data = readDataFromPreview(extractedTemplateId);
+    const body = extractedTemplateId === 'msds' ? buildMSDSWordHTML(data) : buildCOAWordHTML(data);
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><style>
+  body { font-family: Arial, sans-serif; font-size: 9pt; margin: 2cm; }
+  h1 { font-size: 16pt; margin-bottom: 2pt; }
+  p.sub { font-size: 9pt; color: #5EA600; margin-bottom: 4pt; }
+  p.docinfo { font-size: 9pt; margin-bottom: 14pt; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 10pt; }
+  .sec-hdr { background: #5EA600; color: white; font-weight: bold; padding: 5pt 8pt; font-size: 9pt; }
+  td { border: 0.5pt solid #aaa; padding: 5pt 8pt; font-size: 9pt; vertical-align: top; word-break: break-word; }
+  td.lbl { font-weight: bold; width: 38%; }
+  th { background: #5EA600; color: white; padding: 5pt 8pt; font-size: 9pt; font-weight: bold; text-align: left; }
+</style></head>
+<body>${body}</body></html>`;
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = buildOutputName(uploadedFileName, extractedTemplateId).replace('.pdf', '.doc');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch (err) {
+    showStatus(err.message);
+  }
+});
+
+function buildMSDSWordHTML(data) {
+  let html = `<h1>MADURAS HERBALS</h1>
+<p class="sub">Connecting Nature to You</p>
+<p class="docinfo">Doc No: ${esc(data._docNo)} &nbsp;&nbsp;&nbsp; Date: ${esc(data._docDate)}</p>`;
+  for (const sec of data.sections || []) {
+    html += `<table><tr><td colspan="2" class="sec-hdr">${esc(sec.title)}</td></tr>`;
+    for (const row of sec.rows || []) {
+      html += `<tr><td class="lbl">${esc(row.label)}</td><td>${esc(row.value || 'N/A')}</td></tr>`;
+    }
+    html += '</table>';
+  }
+  return html;
+}
+
+function buildCOAWordHTML(data) {
+  let html = `<h1>MADURAS HERBALS</h1>
+<p class="sub">Connecting Nature to You</p>
+<p class="docinfo">Doc No: ${esc(data._docNo)} &nbsp;&nbsp;&nbsp; Date: ${esc(data._docDate)}</p>
+<table>
+  <tr><td colspan="2" class="sec-hdr">PRODUCT INFORMATION</td></tr>
+  ${[
+    ['Product Name', data.product_name],
+    ['Botanical Name', data.botanical_name],
+    ['Country of Origin', data.country_of_origin],
+    ['Batch Size', data.batch_size],
+    ['Batch No', data.batch_no],
+    ['Date of Manufacture', data.date_of_manufacture],
+    ['Date of Expiry', data.date_of_expiry],
+  ].map(([l, v]) => `<tr><td class="lbl">${esc(l)}</td><td>${esc(v || '')}</td></tr>`).join('')}
+</table>
+<table>
+  <tr><th style="width:50%">SENSORY DATA</th><th>VALUE</th></tr>
+  ${(data.sensory_data || []).map(r => `<tr><td class="lbl">${esc(r.label)}</td><td>${esc(r.value)}</td></tr>`).join('')}
+</table>
+<table>
+  <tr><th style="width:38%">ANALYTICAL DATA</th><th>SPECIFIED REQUIREMENT</th><th>RESULT (%)</th></tr>
+  ${(data.analytical_data || []).map(r => `<tr><td>${esc(r.parameter)}</td><td>${esc(r.specification)}</td><td>${esc(r.result)}</td></tr>`).join('')}
+</table>
+<table>
+  <tr><th style="width:38%">MICROBIOLOGICAL DATA</th><th>SPECIFIED REQUIREMENT</th><th>RESULT</th></tr>
+  ${(data.microbiological_data || []).map(r => `<tr><td>${esc(r.parameter)}</td><td>${esc(r.specification)}</td><td>${esc(r.result)}</td></tr>`).join('')}
+</table>`;
+  return html;
+}
+
 // ── Result Buttons ────────────────────────────────────────────────────
 openPdfBtn.addEventListener('click', () => {
   if (generatedBlobUrl) window.open(generatedBlobUrl, '_blank');
