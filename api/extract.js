@@ -153,31 +153,45 @@ export default async function handler(req, res) {
   if (!systemPrompt)
     return res.status(400).json({ error: `Unknown template: ${template}` });
 
-  // Call Anthropic
-  const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key':         process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'content-type':      'application/json',
-    },
-    body: JSON.stringify({
-      model:      'claude-sonnet-4-6',
-      max_tokens: 2048,
-      system:     systemPrompt,
-      messages: [{
-        role: 'user',
-        content: pdfBase64
-          ? [
-              { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
-              { type: 'text', text: 'Extract the data from this document and return the JSON.' },
-            ]
-          : [
-              { type: 'text', text: `Generate ${template.toUpperCase()} data for the following product/ingredient based on your scientific knowledge:\n\nProduct / INCI Name: ${productName}\n\nFill all JSON fields with accurate, typical values for this ingredient. For any field where data is genuinely unknown, use "N/A". Return ONLY the JSON object.` },
-            ],
-      }],
-    }),
+  // Call Anthropic with retry on overload
+  const reqBody = JSON.stringify({
+    model:      'claude-sonnet-4-6',
+    max_tokens: 2048,
+    system:     systemPrompt,
+    messages: [{
+      role: 'user',
+      content: pdfBase64
+        ? [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
+            { type: 'text', text: 'Extract the data from this document and return the JSON.' },
+          ]
+        : [
+            { type: 'text', text: `Generate ${template.toUpperCase()} data for the following product/ingredient based on your scientific knowledge:\n\nProduct / INCI Name: ${productName}\n\nFill all JSON fields with accurate, typical values for this ingredient. For any field where data is genuinely unknown, use "N/A". Return ONLY the JSON object.` },
+          ],
+    }],
   });
+
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  let anthropicRes;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key':         process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type':      'application/json',
+      },
+      body: reqBody,
+    });
+    if (anthropicRes.ok) break;
+    const isOverloaded = anthropicRes.status === 529 || anthropicRes.status === 500;
+    if (isOverloaded && attempt < 4) {
+      await sleep(attempt * 2000); // 2s, 4s, 6s
+      continue;
+    }
+    break;
+  }
 
   if (!anthropicRes.ok) {
     const errText = await anthropicRes.text().catch(() => '');
