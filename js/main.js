@@ -3,7 +3,7 @@
 // =====================================================================
 
 import { requireAuth, getName, clearSession } from './auth.js';
-import { extractDataFromPDF               } from './extractor.js';
+import { extractDataFromPDF, generateFromName } from './extractor.js';
 import { generatePDF as coaGenerate        } from './templates/coa.js';
 import { generatePDF as msdsGenerate       } from './templates/msds.js';
 
@@ -54,6 +54,8 @@ const openPdfBtn         = document.getElementById('openPdfBtn');
 const downloadPdfBtn     = document.getElementById('downloadPdfBtn');
 const statusMsg          = document.getElementById('statusMsg');
 const card               = document.querySelector('.card');
+const productNameInput   = document.getElementById('productNameInput');
+const genFromNameBtn     = document.getElementById('genFromNameBtn');
 
 
 // ── UI Helpers ────────────────────────────────────────────────────────
@@ -119,12 +121,17 @@ uploadZone.addEventListener('drop', (e) => {
 // ── Template Selection ────────────────────────────────────────────────
 templateSelect.addEventListener('change', () => {
   generateBtn.disabled = !templateSelect.value;
+  genFromNameBtn.disabled = !templateSelect.value || !productNameInput.value.trim();
   revokeBlob();
   hide(resultSection);
   hide(editSection);
   card.classList.remove('card--wide');
   extractedTemplateId = null;
   clearStatus();
+});
+
+productNameInput.addEventListener('input', () => {
+  genFromNameBtn.disabled = !templateSelect.value || !productNameInput.value.trim();
 });
 
 
@@ -159,6 +166,41 @@ generateBtn.addEventListener('click', async () => {
   } finally {
     generateBtn.disabled  = false;
     generateBtn.textContent = 'Extract & Preview';
+  }
+});
+
+
+// ── Generate from Name ────────────────────────────────────────────────
+genFromNameBtn.addEventListener('click', async () => {
+  const templateId  = templateSelect.value;
+  const productName = productNameInput.value.trim();
+  if (!templateId || !productName) return;
+
+  clearStatus();
+  revokeBlob();
+  hide(resultSection);
+  hide(editSection);
+  card.classList.remove('card--wide');
+
+  genFromNameBtn.disabled  = true;
+  genFromNameBtn.innerHTML = '<span class="spinner"></span>Generating…';
+
+  try {
+    const dataJson = await generateFromName(productName, templateId);
+    console.log('[Main] Generated JSON:', dataJson);
+
+    extractedTemplateId = templateId;
+    renderEditablePreview(templateId, dataJson);
+    show(editSection);
+    card.classList.add('card--wide');
+    editSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    showStatus('Data generated from name. Review and edit below, then click Generate PDF.', 'success');
+  } catch (err) {
+    console.error('[Generator] Error:', err);
+    showStatus(`Generation failed: ${err.message}`);
+  } finally {
+    genFromNameBtn.disabled  = false;
+    genFromNameBtn.innerHTML = 'Generate from Name';
   }
 });
 
@@ -213,10 +255,10 @@ editContent.addEventListener('click', (e) => {
     t.closest('tr').remove();
     return;
   }
-  // MSDS: remove entire section
+  // MSDS + COA: remove entire section
   if (t.classList.contains('del-section-btn')) {
     if (!confirm('Remove this entire section?')) return;
-    t.closest('.msds-section').remove();
+    t.closest('.msds-section, .coa-section').remove();
     return;
   }
   // MSDS: add row inside a specific section
@@ -229,17 +271,23 @@ editContent.addEventListener('click', (e) => {
     document.getElementById('msds-sections-container').insertAdjacentHTML('beforeend', makeMSDSSection('NEW SECTION TITLE', []));
     return;
   }
-  // COA row buttons
-  if (t.id === 'addSensoryRow') {
-    document.getElementById('tbody_sensory').insertAdjacentHTML('beforeend', makeRow2('', ''));
+  // COA: add row inside a specific section
+  if (t.classList.contains('coa-add-row')) {
+    const sec    = t.closest('.coa-section');
+    const is3col = sec.dataset.type === '3col';
+    sec.querySelector('.coa-tbody').insertAdjacentHTML('beforeend', is3col ? makeRow3('', '', '') : makeRow2('', ''));
     return;
   }
-  if (t.id === 'addAnalyticalRow') {
-    document.getElementById('tbody_analytical').insertAdjacentHTML('beforeend', makeRow3('', '', ''));
+  // COA: add new 2-col section
+  if (t.id === 'addCOASection2') {
+    document.getElementById('coa-sections-container').insertAdjacentHTML('beforeend',
+      makeCOASection({ title: 'NEW SECTION', type: '2col', rows: [] }));
     return;
   }
-  if (t.id === 'addMicroRow') {
-    document.getElementById('tbody_micro').insertAdjacentHTML('beforeend', makeRow3('', '', ''));
+  // COA: add new 3-col section
+  if (t.id === 'addCOASection3') {
+    document.getElementById('coa-sections-container').insertAdjacentHTML('beforeend',
+      makeCOASection({ title: 'NEW SECTION', type: '3col', rows: [] }));
     return;
   }
 });
@@ -357,65 +405,57 @@ function renderCOAEditor(data) {
   const ad = data.analytical_data || [];
   const md = data.microbiological_data || [];
 
-  const sensoryRows = [
-    { label: 'Appearance', value: sd.appearance || '' },
-    { label: 'Color',      value: sd.color      || '' },
-    { label: 'Odor',       value: sd.odor       || '' },
-    { label: 'Solubility', value: sd.solubility || '' },
+  const defaultSections = [
+    {
+      title: 'SENSORY DATA',
+      type:  '2col',
+      rows:  Array.isArray(data.sensory_data)
+        ? data.sensory_data.map(r => ({ c1: r.label || '', c2: r.value || '' }))
+        : [
+            { c1: 'Appearance', c2: sd.appearance || '' },
+            { c1: 'Color',      c2: sd.color      || '' },
+            { c1: 'Odor',       c2: sd.odor       || '' },
+            { c1: 'Solubility', c2: sd.solubility || '' },
+          ],
+    },
+    {
+      title: 'ANALYTICAL DATA',
+      type:  '3col',
+      rows:  ad.map(r => ({ c1: r.parameter || '', c2: r.specification || '', c3: r.result || '' })),
+    },
+    {
+      title: 'MICROBIOLOGICAL DATA',
+      type:  '3col',
+      rows:  md.map(r => ({ c1: r.parameter || '', c2: r.specification || '', c3: r.result || '' })),
+    },
   ];
+
+  const sections = data.sections || defaultSections;
 
   sigSelectedBytes = null;
   editContent.innerHTML = sigControlHTML() + docControlHTML('COA-', 'maduras_docNum_coa') + `
     <div class="edit-group">
       <div class="edit-group-title">Product Information</div>
       <div class="edit-fields">
-        <div class="edit-field"><label>Product Name</label><input type="text" id="ef_product_name" value="${esc(data.product_name)}" /></div>
-        <div class="edit-field"><label>Botanical Name</label><input type="text" id="ef_botanical_name" value="${esc(data.botanical_name)}" /></div>
-        <div class="edit-field"><label>Country of Origin</label><input type="text" id="ef_country_of_origin" value="${esc(data.country_of_origin)}" /></div>
-        <div class="edit-field"><label>Batch Size</label><input type="text" id="ef_batch_size" value="${esc(data.batch_size)}" /></div>
-        <div class="edit-field"><label>Batch No</label><input type="text" id="ef_batch_no" value="${esc(data.batch_no)}" /></div>
-        <div class="edit-field"><label>Date of Manufacture</label><input type="text" id="ef_date_of_manufacture" value="${esc(data.date_of_manufacture)}" /></div>
-        <div class="edit-field"><label>Date of Expiry</label><input type="text" id="ef_date_of_expiry" value="${esc(data.date_of_expiry)}" /></div>
+        <div class="edit-field"><label>Product Name</label><input type="text" id="ef_product_name" value="${esc(data.product_name || '')}" /></div>
+        <div class="edit-field"><label>Botanical Name</label><input type="text" id="ef_botanical_name" value="${esc(data.botanical_name || '')}" /></div>
+        <div class="edit-field"><label>Country of Origin</label><input type="text" id="ef_country_of_origin" value="${esc(data.country_of_origin || '')}" /></div>
+        <div class="edit-field"><label>Batch Size</label><input type="text" id="ef_batch_size" value="${esc(data.batch_size || '')}" /></div>
+        <div class="edit-field"><label>Batch No</label><input type="text" id="ef_batch_no" value="${esc(data.batch_no || '')}" /></div>
+        <div class="edit-field"><label>Date of Manufacture</label><input type="text" id="ef_date_of_manufacture" value="${esc(data.date_of_manufacture || '')}" /></div>
+        <div class="edit-field"><label>Date of Expiry</label><input type="text" id="ef_date_of_expiry" value="${esc(data.date_of_expiry || '')}" /></div>
       </div>
     </div>
 
-    <div class="edit-group">
-      <div class="edit-group-title">Sensory Data</div>
-      <div class="edit-table-wrap">
-        <table class="edit-table">
-          <thead><tr><th style="width:40%">Property</th><th>Value</th><th class="del-col"></th></tr></thead>
-          <tbody id="tbody_sensory">
-            ${sensoryRows.map(r => makeRow2(r.label, r.value)).join('')}
-          </tbody>
-        </table>
-      </div>
-      <button class="add-row-btn" id="addSensoryRow">+ Add Row</button>
+    <div style="margin-bottom:6px;padding:10px 14px;background:#fffbe6;border:1.5px solid #f0c040;border-radius:7px;font-size:12px;color:#7a5800">
+      <b>Full Edit Mode:</b> Rename section titles, add/delete rows, remove sections, or add new 2-col or 3-col sections.
     </div>
-
-    <div class="edit-group">
-      <div class="edit-group-title">Analytical Data</div>
-      <div class="edit-table-wrap">
-        <table class="edit-table">
-          <thead><tr><th style="width:38%">Parameter</th><th>Specification</th><th>Result (%)</th><th class="del-col"></th></tr></thead>
-          <tbody id="tbody_analytical">
-            ${ad.map(r => makeRow3(r.parameter || '', r.specification || '', r.result || '')).join('')}
-          </tbody>
-        </table>
-      </div>
-      <button class="add-row-btn" id="addAnalyticalRow">+ Add Row</button>
+    <div id="coa-sections-container">
+      ${sections.map(sec => makeCOASection(sec)).join('')}
     </div>
-
-    <div class="edit-group">
-      <div class="edit-group-title">Microbiological Data</div>
-      <div class="edit-table-wrap">
-        <table class="edit-table">
-          <thead><tr><th style="width:38%">Parameter</th><th>Specification</th><th>Result</th><th class="del-col"></th></tr></thead>
-          <tbody id="tbody_micro">
-            ${md.map(r => makeRow3(r.parameter || '', r.specification || '', r.result || '')).join('')}
-          </tbody>
-        </table>
-      </div>
-      <button class="add-row-btn" id="addMicroRow">+ Add Row</button>
+    <div style="margin-top:14px;padding-bottom:10px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="add-row-btn" id="addCOASection2" type="button" style="padding:10px 20px;font-size:13px;width:auto">+ Add 2-Col Section</button>
+      <button class="add-row-btn" id="addCOASection3" type="button" style="padding:10px 20px;font-size:13px;width:auto">+ Add 3-Col Section</button>
     </div>
   `;
   setupSigHandlers();
@@ -424,54 +464,40 @@ function renderCOAEditor(data) {
 function readCOAData() {
   const gv = (id) => (document.getElementById('ef_' + id) || {}).value || '';
 
-  const sensoryData = [];
-  document.getElementById('tbody_sensory').querySelectorAll('tr').forEach(tr => {
-    const inputs = tr.querySelectorAll('input');
-    const label  = (inputs[0]?.value || '').trim();
-    if (label) sensoryData.push({ label, value: (inputs[1]?.value || '').trim() });
-  });
-
-  const analyticalData = [];
-  document.getElementById('tbody_analytical').querySelectorAll('tr').forEach(tr => {
-    const inputs    = tr.querySelectorAll('input');
-    const parameter = (inputs[0]?.value || '').trim();
-    if (parameter) analyticalData.push({
-      parameter,
-      specification: (inputs[1]?.value || '').trim(),
-      result:        (inputs[2]?.value || '').trim(),
+  const sections = [];
+  document.querySelectorAll('.coa-section').forEach(sec => {
+    const title  = (sec.querySelector('.coa-sec-title')?.value || '').trim();
+    const type   = sec.dataset.type || '2col';
+    const is3col = type === '3col';
+    const rows   = [];
+    sec.querySelectorAll('.coa-tbody tr').forEach(tr => {
+      const inputs = tr.querySelectorAll('input');
+      if (is3col) {
+        rows.push({ c1: inputs[0]?.value || '', c2: inputs[1]?.value || '', c3: inputs[2]?.value || '' });
+      } else {
+        rows.push({ c1: inputs[0]?.value || '', c2: inputs[1]?.value || '' });
+      }
     });
-  });
-
-  const microData = [];
-  document.getElementById('tbody_micro').querySelectorAll('tr').forEach(tr => {
-    const inputs    = tr.querySelectorAll('input');
-    const parameter = (inputs[0]?.value || '').trim();
-    if (parameter) microData.push({
-      parameter,
-      specification: (inputs[1]?.value || '').trim(),
-      result:        (inputs[2]?.value || '').trim(),
-    });
+    if (title) sections.push({ title, type, rows });
   });
 
   const sigOption = parseInt(document.querySelector('input[name="sigOption"]:checked')?.value || '1');
   if (sigOption === 2 && !sigSelectedBytes) throw new Error('Please select or upload a signature image for Option 2.');
 
   return {
-    _edited:              true,
-    _docNo:               (document.getElementById('ef__docNo')?.value  || '').trim(),
-    _docDate:             formatDateForPDF(document.getElementById('ef__docDate')?.value),
-    _sigOption:           sigOption,
-    _sigBytes:            sigOption === 2 ? sigSelectedBytes : null,
-    product_name:         gv('product_name'),
-    botanical_name:       gv('botanical_name'),
-    country_of_origin:    gv('country_of_origin'),
-    batch_size:           gv('batch_size'),
-    batch_no:             gv('batch_no'),
-    date_of_manufacture:  gv('date_of_manufacture'),
-    date_of_expiry:       gv('date_of_expiry'),
-    sensory_data:         sensoryData,
-    analytical_data:      analyticalData,
-    microbiological_data: microData,
+    _edited:             true,
+    _docNo:              (document.getElementById('ef__docNo')?.value  || '').trim(),
+    _docDate:            formatDateForPDF(document.getElementById('ef__docDate')?.value),
+    _sigOption:          sigOption,
+    _sigBytes:           sigOption === 2 ? sigSelectedBytes : null,
+    product_name:        gv('product_name'),
+    botanical_name:      gv('botanical_name'),
+    country_of_origin:   gv('country_of_origin'),
+    batch_size:          gv('batch_size'),
+    batch_no:            gv('batch_no'),
+    date_of_manufacture: gv('date_of_manufacture'),
+    date_of_expiry:      gv('date_of_expiry'),
+    sections,
   };
 }
 
@@ -775,6 +801,42 @@ function makeMSDSSection(title, rows) {
         </table>
       </div>
       <button class="add-row-btn msds-add-row" type="button">+ Add Row</button>
+    </div>
+  `;
+}
+
+
+function makeCOASection(sec) {
+  const is3col = sec.type === '3col';
+  const rows   = (sec.rows || []).map(r =>
+    is3col ? makeRow3(r.c1 || '', r.c2 || '', r.c3 || '') : makeRow2(r.c1 || '', r.c2 || '')
+  ).join('');
+
+  return `
+    <div class="edit-group coa-section" data-type="${is3col ? '3col' : '2col'}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <input class="coa-sec-title" type="text" value="${esc(sec.title || '')}"
+          style="flex:1;font-weight:700;font-size:12px;padding:6px 10px;border:1.5px solid #bbb;border-radius:5px;background:#f7f7f7;color:#222" />
+        <span style="font-size:11px;color:#888;white-space:nowrap">${is3col ? '3-col' : '2-col'}</span>
+        <button class="del-section-btn" type="button"
+          style="background:#e74c3c;color:#fff;border:none;padding:6px 13px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">
+          ✕ Remove
+        </button>
+      </div>
+      <div class="edit-table-wrap">
+        <table class="edit-table">
+          <thead><tr>
+            <th style="width:${is3col ? '38%' : '45%'}">${is3col ? 'Parameter' : 'Property'}</th>
+            <th>${is3col ? 'Specification' : 'Value'}</th>
+            ${is3col ? '<th>Result</th>' : ''}
+            <th class="del-col"></th>
+          </tr></thead>
+          <tbody class="coa-tbody">
+            ${rows}
+          </tbody>
+        </table>
+      </div>
+      <button class="add-row-btn coa-add-row" type="button">+ Add Row</button>
     </div>
   `;
 }

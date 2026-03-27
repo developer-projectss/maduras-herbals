@@ -68,10 +68,21 @@ export async function generatePDF(d, _fileName) {
   drawWatermark(ctx.page, logoImg);
   drawHeader(ctx.page, bold, regular, boldOblique, logoImg);
   const y1 = drawProductInfo(ctx.page, bold, regular, d);
-  const y2 = drawSensoryTable(ctx, d, y1 - 20);
-  const y3 = drawAnalyticalTable(ctx, d, y2 - 16);
-  const y4 = drawMicroTable(ctx, d, y3 - 16);
-  await drawFooterArea(ctx.page, bold, regular, y4 - 28, doc, d);
+
+  if (d.sections && Array.isArray(d.sections) && d.sections.length) {
+    // Dynamic sections mode
+    let y = y1 - 20;
+    for (const sec of d.sections) {
+      y = drawDynamicCOASection(ctx, sec, y) - 16;
+    }
+    await drawFooterArea(ctx.page, bold, regular, y - 12, doc, d);
+  } else {
+    // Legacy mode — flat extracted fields
+    const y2 = drawSensoryTable(ctx, d, y1 - 20);
+    const y3 = drawAnalyticalTable(ctx, d, y2 - 16);
+    const y4 = drawMicroTable(ctx, d, y3 - 16);
+    await drawFooterArea(ctx.page, bold, regular, y4 - 28, doc, d);
+  }
   drawBottomBar(ctx.page, bold, regular, docNo, docDate);
 
   return await doc.save();
@@ -240,6 +251,48 @@ function drawTableRow(page, regular, y, cols, values, alt) {
     page.drawText(val, { x: x + w / 2 - tw / 2, y: y - rh + 5, size: 9, font: regular, color: COL.black });
   });
   return y - rh;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DYNAMIC COA SECTION — 2-col or 3-col, fully user-defined
+// ═══════════════════════════════════════════════════════════════════════
+function drawDynamicCOASection(ctx, sec, startY) {
+  const { bold, regular } = ctx;
+  const is3col = sec.type === '3col';
+
+  let cols;
+  if (is3col) {
+    const w1 = CW * 0.38, w2 = CW * 0.35, w3 = CW * 0.27;
+    cols = [
+      { label: (sec.title || '').toUpperCase(), x: ML,           w: w1 },
+      { label: 'SPECIFIED REQUIREMENT',          x: ML + w1,      w: w2 },
+      { label: 'RESULT',                         x: ML + w1 + w2, w: w3 },
+    ];
+  } else {
+    const half = CW / 2;
+    cols = [
+      { label: (sec.title || '').toUpperCase(), x: ML,        w: half },
+      { label: '',                               x: ML + half, w: half },
+    ];
+  }
+
+  let y = startY;
+  if (y - 20 - 18 < FOOT_Y_COA) { newCOAPage(ctx); y = PH - 65; }
+  y = drawTableHeader(ctx.page, bold, y, cols);
+
+  let altIdx = 0;
+  for (const row of sec.rows || []) {
+    if (y - 18 < FOOT_Y_COA) {
+      newCOAPage(ctx);
+      y = PH - 65;
+      y = drawTableHeader(ctx.page, bold, y, cols);
+      altIdx = 0;
+    }
+    const values = is3col ? [row.c1, row.c2, row.c3] : [row.c1, row.c2];
+    y = drawTableRow(ctx.page, regular, y, cols, values, altIdx % 2 === 0);
+    altIdx++;
+  }
+  return y;
 }
 
 // ═══════════════════════════════════════════════════════════════════════

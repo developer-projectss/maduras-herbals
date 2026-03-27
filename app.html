@@ -752,6 +752,13 @@
         padding: 6px;
         background: #fff;
       }
+
+      #productNameInput:focus {
+        border-color: #3d9400;
+        box-shadow: 0 0 0 3px rgba(61,148,0,0.1);
+        background: #fff;
+        outline: none;
+      }
     </style>
   </head>
   <body>
@@ -811,10 +818,17 @@
             </select>
           </div>
 
-          <!-- Step 3: Extract & Preview -->
+          <!-- Step 3: Extract & Preview OR Generate from Name -->
           <div class="section" id="generateSection">
             <button class="btn btn-primary" id="generateBtn" disabled>
               Extract &amp; Preview
+            </button>
+            <div style="text-align:center;margin:10px 0 8px;color:#a0b0a0;font-size:12px;font-weight:600;letter-spacing:0.5px">— OR —</div>
+            <input type="text" id="productNameInput"
+              placeholder="Enter Product Name or INCI Name to generate without PDF…"
+              style="width:100%;padding:9px 12px;border:1.5px solid #dde5dd;border-radius:7px;font-size:13px;font-family:inherit;outline:none;color:#1a2a1a;background:#fafcfa;transition:border-color 0.2s;box-sizing:border-box" />
+            <button class="btn btn-outline" id="genFromNameBtn" disabled style="margin-top:8px">
+              Generate from Name
             </button>
           </div>
 

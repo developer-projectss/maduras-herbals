@@ -145,9 +145,9 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Session expired. Please log in again.' });
 
   // Body
-  const { template, pdf: pdfBase64 } = req.body || {};
-  if (!template || !pdfBase64)
-    return res.status(400).json({ error: 'Missing template or pdf' });
+  const { template, pdf: pdfBase64, productName } = req.body || {};
+  if (!template || (!pdfBase64 && !productName))
+    return res.status(400).json({ error: 'Missing template and either pdf or productName' });
 
   const systemPrompt = SYSTEM_PROMPTS[template.toLowerCase()];
   if (!systemPrompt)
@@ -167,10 +167,14 @@ export default async function handler(req, res) {
       system:     systemPrompt,
       messages: [{
         role: 'user',
-        content: [
-          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
-          { type: 'text',     text: 'Extract the data from this document and return the JSON.' },
-        ],
+        content: pdfBase64
+          ? [
+              { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
+              { type: 'text', text: 'Extract the data from this document and return the JSON.' },
+            ]
+          : [
+              { type: 'text', text: `Generate ${template.toUpperCase()} data for the following product/ingredient based on your scientific knowledge:\n\nProduct / INCI Name: ${productName}\n\nFill all JSON fields with accurate, typical values for this ingredient. For any field where data is genuinely unknown, use "N/A". Return ONLY the JSON object.` },
+            ],
       }],
     }),
   });

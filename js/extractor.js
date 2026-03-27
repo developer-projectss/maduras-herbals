@@ -38,6 +38,27 @@ export async function extractDataFromPDF(pdfBytes, template) {
   return result.data;
 }
 
+export async function generateFromName(productName, template) {
+  const token = getToken();
+  if (!token) throw new Error('Not authenticated. Please log in again.');
+
+  const response = await fetch('/api/extract', {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ template, productName }),
+  });
+
+  const result = await response.json();
+  if (!response.ok) {
+    if (response.status === 401) window.location.href = './index.html';
+    throw new Error(result.error || `Server error ${response.status}`);
+  }
+  return result.data;
+}
+
 // ── Utility ───────────────────────────────────────────────────────────
 function uint8ToBase64(bytes) {
   let binary = '';
