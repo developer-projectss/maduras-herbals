@@ -403,10 +403,32 @@ function drawPageFooter(page, regular, pageNum, withPrefix) {
 function wrapText(font, text, size, maxWidth) {
   const str    = String(text ?? 'N/A');
   const result = [];
+
+  // Break a single word that is too wide to fit — char by char
+  function breakWord(word) {
+    let chunk = '';
+    for (const ch of word) {
+      const test = chunk + ch;
+      if (font.widthOfTextAtSize(test, size) <= maxWidth) {
+        chunk = test;
+      } else {
+        if (chunk) result.push(chunk);
+        chunk = ch;
+      }
+    }
+    if (chunk) result.push(chunk);
+  }
+
   for (const para of str.split('\n')) {
     const words = para.trim().split(/\s+/);
     let line = '';
     for (const word of words) {
+      // If the word alone is wider than maxWidth, flush current line then break word
+      if (font.widthOfTextAtSize(word, size) > maxWidth) {
+        if (line) { result.push(line); line = ''; }
+        breakWord(word);
+        continue;
+      }
       const test = line ? line + ' ' + word : word;
       if (font.widthOfTextAtSize(test, size) <= maxWidth) {
         line = test;
