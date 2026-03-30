@@ -144,7 +144,7 @@ export async function generatePDF(d, _fileName) {
       wrapText(regular, String(value  ?? 'N/A'), FS, VW_ICON - 12).length
     );
     const textH = n * LH + 2 * RPAD;
-    return Math.max(textH, 54 + 2 * RPAD); // min height to fit icon
+    return textH * 2; // row is 2× normal height when icon column is present
   }
 
   async function drawRowWithIcon(page, y, label, value, iconDataUrl) {
@@ -152,7 +152,7 @@ export async function generatePDF(d, _fileName) {
     const valLines = wrapText(regular, String(value  ?? 'N/A'), FS, VW_ICON - 12);
     const n     = Math.max(labLines.length, valLines.length);
     const textH = n * LH + 2 * RPAD;
-    const rh    = iconDataUrl ? Math.max(textH, 54 + 2 * RPAD) : textH;
+    const rh    = textH * 2; // always 2× — icon column sections use doubled height
 
     // Cell backgrounds + outer border
     page.drawRectangle({ x: ML,              y: y - rh, width: LW,      height: rh, color: COL.rowWhite, borderColor: COL.border, borderWidth: 0.3 });
