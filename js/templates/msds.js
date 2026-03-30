@@ -26,8 +26,10 @@ const MR = 50;
 const CW = PW - ML - MR;
 
 // ── Table column widths ───────────────────────────────────────────────
-const LW = CW * 0.38; // label column
-const VW = CW * 0.62; // value column
+const LW      = CW * 0.38; // label column
+const VW      = CW * 0.62; // value column
+const IW      = 65;         // icon column width (when enabled)
+const VW_ICON = CW - LW - IW; // value column when icon column is present
 
 // ── Typography ───────────────────────────────────────────────────────
 const FS   = 8.5; // font size
@@ -136,6 +138,85 @@ export async function generatePDF(d, _fileName) {
     });
   }
 
+  function calcRowHIcon(label, value) {
+    const n = Math.max(
+      wrapText(bold,    String(label  ?? ''),    FS, LW - 10).length,
+      wrapText(regular, String(value  ?? 'N/A'), FS, VW_ICON - 12).length
+    );
+    const textH = n * LH + 2 * RPAD;
+    return Math.max(textH, 54 + 2 * RPAD); // min height to fit icon
+  }
+
+  async function drawRowWithIcon(page, y, label, value, iconDataUrl) {
+    const labLines = wrapText(bold,    String(label  ?? ''),    FS, LW - 10);
+    const valLines = wrapText(regular, String(value  ?? 'N/A'), FS, VW_ICON - 12);
+    const n     = Math.max(labLines.length, valLines.length);
+    const textH = n * LH + 2 * RPAD;
+    const rh    = iconDataUrl ? Math.max(textH, 54 + 2 * RPAD) : textH;
+
+    // Cell backgrounds + outer border
+    page.drawRectangle({ x: ML,              y: y - rh, width: LW,      height: rh, color: COL.rowWhite, borderColor: COL.border, borderWidth: 0.3 });
+    page.drawRectangle({ x: ML + LW,         y: y - rh, width: VW_ICON, height: rh, color: COL.rowWhite, borderColor: COL.border, borderWidth: 0.3 });
+    page.drawRectangle({ x: ML + LW + VW_ICON, y: y - rh, width: IW,   height: rh, color: COL.rowWhite, borderColor: COL.border, borderWidth: 0.3 });
+
+    // Internal dividers
+    page.drawLine({ start: { x: ML + LW,          y }, end: { x: ML + LW,          y: y - rh }, thickness: 0.5, color: COL.border });
+    page.drawLine({ start: { x: ML + LW + VW_ICON, y }, end: { x: ML + LW + VW_ICON, y: y - rh }, thickness: 0.5, color: COL.border });
+
+    // Label text (centred)
+    const labBlockH = labLines.length * LH;
+    const labY0 = y - (rh - labBlockH) / 2 - FS * 0.85;
+    labLines.forEach((line, i) => {
+      const tw = bold.widthOfTextAtSize(line, FS);
+      page.drawText(line, { x: ML + (LW - tw) / 2, y: labY0 - i * LH, size: FS, font: bold, color: COL.black });
+    });
+
+    // Value text
+    const valBlockH = valLines.length * LH;
+    const valY0 = y - (rh - valBlockH) / 2 - FS * 0.85;
+    valLines.forEach((line, i) => {
+      const x = valLines.length === 1
+        ? ML + LW + (VW_ICON - regular.widthOfTextAtSize(line, FS)) / 2
+        : ML + LW + 6;
+      page.drawText(line, { x, y: valY0 - i * LH, size: FS, font: regular, color: COL.black });
+    });
+
+    // Icon image
+    if (iconDataUrl) {
+      try {
+        const bytes  = dataUrlToBytes(iconDataUrl);
+        const isPng  = iconDataUrl.startsWith('data:image/png');
+        let img;
+        try { img = isPng ? await doc.embedPng(bytes) : await doc.embedJpg(bytes); }
+        catch { img = await doc.embedPng(bytes); }
+
+        const maxW  = IW - 10;
+        const maxH  = rh - 8;
+        const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+        const iw    = img.width  * scale;
+        const ih    = img.height * scale;
+        page.drawImage(img, {
+          x:      ML + LW + VW_ICON + (IW - iw) / 2,
+          y:      y - rh + (rh - ih) / 2,
+          width:  iw,
+          height: ih,
+        });
+      } catch (e) { console.warn('[MSDS] Icon embed failed:', e); }
+    }
+
+    return y - rh;
+  }
+
+  async function drawSecIcons(title, rows) {
+    const firstRow = rows[0] || {};
+    ensureSpace(20 + calcRowHIcon(firstRow.label || '', firstRow.value || ''));
+    pm.y = drawSectionHeader(pm.page, bold, pm.y, title);
+    for (const row of rows) {
+      ensureSpace(calcRowHIcon(row.label || '', row.value || ''));
+      pm.y = await drawRowWithIcon(pm.page, pm.y, row.label || '', row.value || '', row.icon || null);
+    }
+  }
+
   function drawSecText(title, text) {
     const lines = wrapText(regular, text, FS, CW - 4);
     ensureSpace(20 + LH + 8);
@@ -154,7 +235,11 @@ export async function generatePDF(d, _fileName) {
   if (d.sections && Array.isArray(d.sections) && d.sections.length) {
     // Dynamic mode — user built/edited sections in preview
     for (const sec of d.sections) {
-      drawSec(sec.title, (sec.rows || []).map(r => [r.label || '', r.value || '']));
+      if (sec.hasIcons) {
+        await drawSecIcons(sec.title, sec.rows || []);
+      } else {
+        drawSec(sec.title, (sec.rows || []).map(r => [r.label || '', r.value || '']));
+      }
       gap(8);
     }
   } else {
@@ -519,4 +604,15 @@ async function drawSignatureArea(page, regular, y, doc, d) {
       page.drawImage(sigImg, { x: ML + 20, y: y - sigH + 10, width: sigW, height: sigH });
     } catch (e) { console.warn('[MSDS] Signature embed failed:', e); }
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// UTILITY
+// ═══════════════════════════════════════════════════════════════════════
+function dataUrlToBytes(dataUrl) {
+  const base64 = dataUrl.split(',')[1];
+  const binary = atob(base64);
+  const bytes  = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }

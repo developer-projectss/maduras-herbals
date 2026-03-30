@@ -284,6 +284,31 @@ confirmGenerateBtn.addEventListener('click', async () => {
 });
 
 
+// ── Icon upload per row (change event) ───────────────────────────────
+editContent.addEventListener('change', (e) => {
+  const t = e.target;
+  if (!t.classList.contains('row-icon-input')) return;
+  const file = t.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const dataUrl = ev.target.result;
+    const tr      = t.closest('tr');
+    tr.dataset.iconDataUrl = dataUrl;
+    const lbl = t.closest('label');
+    const old = lbl.querySelector('.row-icon-preview, .row-icon-ph');
+    const img = document.createElement('img');
+    img.className = 'row-icon-preview';
+    img.src       = dataUrl;
+    img.style.cssText = 'max-height:36px;max-width:54px;object-fit:contain;border-radius:3px';
+    if (old) old.replaceWith(img);
+    const txt = lbl.querySelector('.icon-upload-txt');
+    if (txt) txt.textContent = 'Change';
+  };
+  reader.readAsDataURL(file);
+});
+
+
 // ── Edit Content — Event Delegation ──────────────────────────────────
 editContent.addEventListener('click', (e) => {
   const t = e.target;
@@ -298,9 +323,37 @@ editContent.addEventListener('click', (e) => {
     t.closest('.msds-section, .coa-section').remove();
     return;
   }
+  // MSDS: toggle icon column for a section
+  if (t.classList.contains('msds-toggle-icons')) {
+    const sec      = t.closest('.msds-section');
+    const nowIcons = sec.dataset.hasIcons !== 'true';
+    sec.dataset.hasIcons = nowIcons ? 'true' : 'false';
+    if (nowIcons) {
+      sec.querySelector('thead tr').querySelector('.del-col')
+        .insertAdjacentHTML('beforebegin', '<th style="width:70px">Icon</th>');
+      sec.querySelectorAll('.msds-tbody tr').forEach(tr => {
+        tr.querySelector('.del-btn').closest('td')
+          .insertAdjacentHTML('beforebegin', makeIconCell(''));
+      });
+      t.textContent = '✕ Icon Col';
+      t.style.background = '#e67e22';
+    } else {
+      const iconTh = [...sec.querySelectorAll('thead th')].find(th => th.textContent.trim() === 'Icon');
+      if (iconTh) iconTh.remove();
+      sec.querySelectorAll('.msds-tbody tr').forEach(tr => {
+        tr.querySelectorAll('td').forEach(td => { if (td.querySelector('.row-icon-input')) td.remove(); });
+        delete tr.dataset.iconDataUrl;
+      });
+      t.textContent = '+ Icon Col';
+      t.style.background = '#27ae60';
+    }
+    return;
+  }
   // MSDS: add row inside a specific section
   if (t.classList.contains('msds-add-row')) {
-    t.closest('.msds-section').querySelector('.msds-tbody').insertAdjacentHTML('beforeend', makeRow2('', ''));
+    const sec      = t.closest('.msds-section');
+    const hasIcons = sec.dataset.hasIcons === 'true';
+    sec.querySelector('.msds-tbody').insertAdjacentHTML('beforeend', makeMSDSRow('', '', hasIcons, ''));
     return;
   }
   // MSDS: add a brand-new section at the bottom
@@ -625,7 +678,7 @@ function renderMSDSEditor(data) {
       <b>Full Edit Mode:</b> Rename section titles, add/delete rows inside each section, remove sections, or add new sections from scratch.
     </div>
     <div id="msds-sections-container">
-      ${sections.map(sec => makeMSDSSection(sec.title, sec.rows)).join('')}
+      ${sections.map(sec => makeMSDSSection(sec.title, sec.rows, sec.hasIcons || false)).join('')}
     </div>
     <div style="margin-top:14px;padding-bottom:10px;text-align:center">
       <button class="add-row-btn" id="addMSDSSection" type="button" style="padding:10px 28px;font-size:13px">+ Add New Section</button>
@@ -637,16 +690,19 @@ function renderMSDSEditor(data) {
 function readMSDSData() {
   const sections = [];
   document.querySelectorAll('.msds-section').forEach(sec => {
-    const title = (sec.querySelector('.msds-sec-title')?.value || '').trim();
+    const title    = (sec.querySelector('.msds-sec-title')?.value || '').trim();
+    const hasIcons = sec.dataset.hasIcons === 'true';
     const rows = [];
     sec.querySelectorAll('.msds-tbody tr').forEach(tr => {
-      const inputs = tr.querySelectorAll('input');
-      rows.push({
+      const inputs = tr.querySelectorAll('input[type="text"]');
+      const row = {
         label: (inputs[0]?.value || '').trim(),
         value: (inputs[1]?.value || '').trim(),
-      });
+      };
+      if (hasIcons) row.icon = tr.dataset.iconDataUrl || '';
+      rows.push(row);
     });
-    if (title) sections.push({ title, rows });
+    if (title) sections.push({ title, hasIcons, rows });
   });
 
   const sigOption = parseInt(document.querySelector('input[name="sigOption"]:checked')?.value || '1');
@@ -809,12 +865,41 @@ function makeRow3(v1, v2, v3) {
   </tr>`;
 }
 
-function makeMSDSSection(title, rows) {
+function makeIconCell(iconDataUrl) {
+  return `<td style="text-align:center;vertical-align:middle;padding:4px;min-width:68px">
+    <label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px">
+      ${iconDataUrl
+        ? `<img class="row-icon-preview" src="${iconDataUrl}" style="max-height:36px;max-width:54px;object-fit:contain;border-radius:3px" />`
+        : `<span class="row-icon-ph" style="font-size:18px;color:#bbb">&#128444;</span>`
+      }
+      <span class="icon-upload-txt" style="font-size:10px;color:#888">${iconDataUrl ? 'Change' : 'Upload'}</span>
+      <input type="file" class="row-icon-input" accept="image/png,image/jpeg" style="display:none" />
+    </label>
+  </td>`;
+}
+
+function makeMSDSRow(label, value, showIcon, iconDataUrl) {
+  const iconTd = showIcon ? makeIconCell(iconDataUrl || '') : '';
+  const dataAttr = showIcon && iconDataUrl ? ` data-icon-data-url="${iconDataUrl}"` : '';
+  return `<tr${dataAttr}>
+    <td><input type="text" value="${esc(label)}" /></td>
+    <td><input type="text" value="${esc(value)}" /></td>
+    ${iconTd}
+    <td><button class="del-btn" type="button" title="Remove row">✕</button></td>
+  </tr>`;
+}
+
+function makeMSDSSection(title, rows, hasIcons) {
+  const iconTh  = hasIcons ? '<th style="width:70px">Icon</th>' : '';
+  const toggleStyle = hasIcons
+    ? 'background:#e67e22;color:#fff;border:none;padding:5px 11px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap'
+    : 'background:#27ae60;color:#fff;border:none;padding:5px 11px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap';
   return `
-    <div class="edit-group msds-section">
+    <div class="edit-group msds-section" data-has-icons="${hasIcons ? 'true' : 'false'}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <input class="msds-sec-title" type="text" value="${esc(title)}"
           style="flex:1;font-weight:700;font-size:12px;padding:6px 10px;border:1.5px solid #bbb;border-radius:5px;background:#f7f7f7;color:#222" />
+        <button class="msds-toggle-icons" type="button" style="${toggleStyle}">${hasIcons ? '✕ Icon Col' : '+ Icon Col'}</button>
         <button class="del-section-btn" type="button"
           style="background:#e74c3c;color:#fff;border:none;padding:6px 13px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap">
           ✕ Remove Section
@@ -822,9 +907,9 @@ function makeMSDSSection(title, rows) {
       </div>
       <div class="edit-table-wrap">
         <table class="edit-table">
-          <thead><tr><th style="width:35%">Label</th><th>Value</th><th class="del-col"></th></tr></thead>
+          <thead><tr><th style="width:35%">Label</th><th>Value</th>${iconTh}<th class="del-col"></th></tr></thead>
           <tbody class="msds-tbody">
-            ${rows.map(r => makeRow2(r.label, r.value)).join('')}
+            ${(rows || []).map(r => makeMSDSRow(r.label || '', r.value || '', hasIcons, r.icon || '')).join('')}
           </tbody>
         </table>
       </div>
